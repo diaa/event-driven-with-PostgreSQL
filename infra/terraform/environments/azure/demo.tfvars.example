@@ -29,3 +29,7 @@ postgres_admin_password  = "REPLACE_WITH_STRONG_PASSWORD"
 azure_postgres_sku_name  = "B_Standard_B1ms"
 azure_postgres_storage_mb = 32768
 azure_postgres_version   = "16"
+
+# GitHub repo URL to clone onto VMs (update if you forked this repo)
+github_repo_url = "https://github.com/diaa/event-driven-with-PostgreSQL.git"
+azure_postgres_version   = "16"

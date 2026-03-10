@@ -1,7 +1,6 @@
 deployment_target        = "local"
 project_name             = "edp-cdc"
 environment              = "dev"
-aws_region               = "us-east-1"
 azure_location           = "eastus"
 postgres_admin_username  = "pgadmin"
 postgres_admin_password  = "change-me-before-cloud-apply"

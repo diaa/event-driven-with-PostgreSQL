@@ -97,3 +97,14 @@ variable "remote_vnet_id" {
   type        = string
   default     = ""
 }
+
+variable "github_repo_url" {
+  description = "HTTPS URL of the GitHub repo to clone on VMs"
+  type        = string
+}
+
+variable "postgres_fqdn_override" {
+  description = "Computed PG FQDN passed from root module (set automatically)"
+  type        = string
+  default     = ""
+}

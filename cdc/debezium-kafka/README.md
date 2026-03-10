@@ -18,8 +18,6 @@ Register Debezium connector first:
 ./scripts/setup-debezium.sh
 ```
 
-PowerShell fallback: `./scripts/setup-debezium.ps1`
-
 ## Environment Variables
 
 - `KAFKA_BOOTSTRAP` default `localhost:9092`

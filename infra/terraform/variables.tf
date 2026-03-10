@@ -1,11 +1,11 @@
 variable "deployment_target" {
-  description = "Target platform: local, azure, or aws"
+  description = "Target platform: local or azure"
   type        = string
   default     = "local"
 
   validation {
-    condition     = contains(["local", "azure", "aws"], var.deployment_target)
-    error_message = "deployment_target must be one of: local, azure, aws"
+    condition     = contains(["local", "azure"], var.deployment_target)
+    error_message = "deployment_target must be one of: local, azure"
   }
 }
 
@@ -19,12 +19,6 @@ variable "environment" {
   description = "Environment name"
   type        = string
   default     = "dev"
-}
-
-variable "aws_region" {
-  description = "AWS region"
-  type        = string
-  default     = "us-east-1"
 }
 
 variable "azure_location" {
@@ -109,4 +103,10 @@ variable "postgres_admin_password" {
   description = "PostgreSQL admin password"
   type        = string
   sensitive   = true
+}
+
+variable "github_repo_url" {
+  description = "HTTPS URL of the GitHub repo to clone on VMs"
+  type        = string
+  default     = "https://github.com/diaa/event-driven-with-PostgreSQL.git"
 }

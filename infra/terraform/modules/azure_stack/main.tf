@@ -14,7 +14,9 @@ locals {
       - jq
       - git
       - unzip
+      - postgresql-client
     runcmd:
+      # Install Docker
       - install -m 0755 -d /etc/apt/keyrings
       - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
       - chmod a+r /etc/apt/keyrings/docker.asc
@@ -24,11 +26,28 @@ locals {
       - usermod -aG docker ${var.vm_admin_username}
       - systemctl enable docker
       - systemctl start docker
-      - snap install yq
-      - curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-      - echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" > /etc/apt/sources.list.d/hashicorp.list
-      - apt-get update -y
-      - apt-get install -y terraform
+      # Clone repo and start services
+      - git clone ${var.github_repo_url} /opt/edp-cdc
+      - chown -R ${var.vm_admin_username}:${var.vm_admin_username} /opt/edp-cdc
+      # Write .env file for docker-compose env var substitution
+      - |
+        cat > /opt/edp-cdc/.env <<EOF
+        PG_HOST=${local.name_prefix}pg.${var.prefix}.postgres.database.azure.com
+        PG_PORT=5432
+        PG_USER=${var.postgres_admin_username}
+        PG_PASSWORD=${var.postgres_admin_password}
+        PG_DB=appdb
+        DATABASE_URL=postgresql://${var.postgres_admin_username}:${var.postgres_admin_password}@${local.name_prefix}pg.${var.prefix}.postgres.database.azure.com:5432/appdb?sslmode=require
+        EOF
+      - chmod 600 /opt/edp-cdc/.env
+      # Build and start Docker Compose services
+      - cd /opt/edp-cdc && docker compose up -d --build
+      # Wait for services to be ready
+      - sleep 15
+      # Initialize DB schema on Azure Flexible Server
+      - cd /opt/edp-cdc && export DATABASE_URL="postgresql://${var.postgres_admin_username}:${var.postgres_admin_password}@${local.name_prefix}pg.${var.prefix}.postgres.database.azure.com:5432/appdb?sslmode=require" && bash scripts/init-demo-db.sh
+      # Setup Debezium connector
+      - cd /opt/edp-cdc && DB_HOST=${local.name_prefix}pg.${var.prefix}.postgres.database.azure.com DB_USER=${var.postgres_admin_username} DB_PASSWORD=${var.postgres_admin_password} bash scripts/setup-debezium.sh
       - echo "Bootstrap complete" > /var/log/edp-bootstrap.done
   EOT
 }

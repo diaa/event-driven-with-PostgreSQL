@@ -8,11 +8,6 @@ output "azure_postgres_database" {
   description = "Azure PostgreSQL demo database"
 }
 
-output "aws_postgres_endpoint" {
-  value       = try(module.aws_stack[0].postgres_endpoint, null)
-  description = "AWS PostgreSQL endpoint"
-}
-
 output "azure_vm_public_ips" {
   value       = try(module.azure_stack[0].vm_public_ips, [])
   description = "Public IPs of Azure Linux VM(s)"
@@ -61,9 +56,4 @@ output "azure_db_subnet_id" {
 output "azure_vnet_peering_enabled" {
   value       = try(module.azure_stack[0].vnet_peering_enabled, false)
   description = "Whether optional VNet peering is enabled"
-}
-
-output "aws_eks_name" {
-  value       = try(module.aws_stack[0].eks_name, null)
-  description = "AWS EKS cluster for Kafka/Drasi deployment"
 }

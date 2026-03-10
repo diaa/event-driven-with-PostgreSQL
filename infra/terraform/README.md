@@ -1,12 +1,11 @@
 # Terraform Environment Setup
 
-This Terraform stack provisions cloud infrastructure for the talk demo.
+This Terraform stack provisions Azure infrastructure for the CDC demo. After `terraform apply`, VMs are fully bootstrapped and demo-ready.
 
 ## Targets
 
-- `local`: no cloud resources (use Docker Compose)
-- `azure`: self-contained Linux VM(s) + PostgreSQL Flexible Server (private networking)
-- `aws`: RDS PostgreSQL + EKS baseline
+- `local`: no cloud resources (use Docker Compose directly)
+- `azure`: self-contained Linux VM(s) + Azure PostgreSQL Flexible Server (private networking)
 
 ## Usage
 
@@ -33,9 +32,13 @@ This is the recommended path for your session when you want a self-contained Azu
 	- `max_wal_senders=10`
 	- `max_slot_wal_keep_size=2048`
 - `appdb` database
-- Linux VM(s) with cloud-init bootstrap:
-	- Docker Engine + Docker Compose plugin
-	- Git, jq, unzip, Terraform CLI
+- Linux VM(s) with cloud-init bootstrap that automatically:
+	- Installs Docker Engine + Docker Compose plugin + psql client
+	- Clones the GitHub repo
+	- Writes `.env` with Azure PG connection details
+	- Runs `docker compose up -d --build`
+	- Initializes DB schema on Azure Flexible Server (`init-demo-db.sh`)
+	- Registers the Debezium connector (`setup-debezium.sh`)
 - NSG allowing:
 	- SSH `22` from `azure_admin_cidr`
 	- Demo ports from `azure_admin_cidr`: `3000, 5050, 8081, 8083, 8089, 8090, 8501, 9090`
@@ -79,6 +82,8 @@ Use `environments/azure/demo.tfvars.example` as template and provide:
 - `deployment_target = "azure"`
 - `azure_vm_admin_ssh_public_key` (your real SSH public key)
 - `postgres_admin_password` (strong password)
+
+- `github_repo_url` (if you forked this repo)
 
 Optional but recommended:
 
@@ -133,5 +138,5 @@ terraform apply -var-file=environments/azure/demo.tfvars
 
 ## Notes
 
-- This module focuses on infrastructure. Deploy app containers on the VM(s) after `terraform apply`.
+- After `terraform apply`, VMs automatically clone the repo, build containers, init the DB, and register Debezium. SSH in and check `/var/log/edp-bootstrap.done` to confirm completion.
 - Keep tfvars with secrets out of source control.

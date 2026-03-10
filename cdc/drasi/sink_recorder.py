@@ -1,7 +1,9 @@
 import os
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 import psycopg2
+from psycopg2 import pool
 from fastapi import FastAPI
 from pydantic import BaseModel
 
@@ -13,6 +15,16 @@ PG_DB = os.getenv("PG_DB", "appdb")
 
 app = FastAPI(title="Drasi Sink Recorder")
 
+pg_pool = pool.SimpleConnectionPool(
+    minconn=2,
+    maxconn=10,
+    host=PG_HOST,
+    port=PG_PORT,
+    user=PG_USER,
+    password=PG_PASSWORD,
+    dbname=PG_DB,
+)
+
 
 class DrasiEvent(BaseModel):
     event_id: str
@@ -21,11 +33,13 @@ class DrasiEvent(BaseModel):
     payload_bytes: int | None = None
 
 
-def conn_dsn() -> str:
-    return (
-        f"host={PG_HOST} port={PG_PORT} dbname={PG_DB} "
-        f"user={PG_USER} password={PG_PASSWORD}"
-    )
+@contextmanager
+def get_conn():
+    conn = pg_pool.getconn()
+    try:
+        yield conn
+    finally:
+        pg_pool.putconn(conn)
 
 
 @app.post("/events")
@@ -35,8 +49,7 @@ def record_event(event: DrasiEvent):
     if event.source_commit_ts is not None:
         latency_ms = (observed - event.source_commit_ts).total_seconds() * 1000.0
 
-    conn = psycopg2.connect(conn_dsn())
-    try:
+    with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -56,7 +69,5 @@ def record_event(event: DrasiEvent):
                 ),
             )
         conn.commit()
-    finally:
-        conn.close()
 
     return {"status": "ok"}

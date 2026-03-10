@@ -21,6 +21,8 @@ LOC_TABLE = {
     "drasi": "cdc/drasi",
 }
 
+WORKSPACE_ROOT = os.getenv("WORKSPACE_ROOT", os.path.join(os.path.dirname(__file__), "..", ".."))
+
 
 @st.cache_data(ttl=5)
 def load_data() -> pd.DataFrame:
@@ -48,9 +50,13 @@ def load_data() -> pd.DataFrame:
 
 def complexity_df() -> pd.DataFrame:
     rows = []
-    for name, path in LOC_TABLE.items():
+    for name, rel_path in LOC_TABLE.items():
         loc = 0
-        for root, _, files in os.walk(path):
+        full_path = os.path.join(WORKSPACE_ROOT, rel_path)
+        if not os.path.isdir(full_path):
+            rows.append({"approach": name, "approx_loc": 0})
+            continue
+        for root, _, files in os.walk(full_path):
             for file in files:
                 if file.endswith(".py") or file.endswith(".sql") or file.endswith(".md"):
                     file_path = os.path.join(root, file)

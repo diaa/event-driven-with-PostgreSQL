@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     build:
@@ -96,7 +94,7 @@ services:
     ports:
       - "9187:9187"
     environment:
-      DATA_SOURCE_NAME: postgresql://postgres:postgres@postgres:5432/appdb?sslmode=disable
+      DATA_SOURCE_NAME: postgresql://${PG_USER:-postgres}:${PG_PASSWORD:-postgres}@${PG_HOST:-postgres}:${PG_PORT:-5432}/${PG_DB:-appdb}?sslmode=disable
 
   prometheus:
     image: prom/prometheus:v2.52.0
@@ -127,8 +125,16 @@ services:
     container_name: edp-benchmark-dashboard
     ports:
       - "8501:8501"
+    environment:
+      PG_HOST: ${PG_HOST:-postgres}
+      PG_PORT: ${PG_PORT:-5432}
+      PG_USER: ${PG_USER:-postgres}
+      PG_PASSWORD: ${PG_PASSWORD:-postgres}
+      PG_DB: ${PG_DB:-appdb}
+      WORKSPACE_ROOT: /app/workspace
     volumes:
       - ./benchmarks/results:/app/results
+      - .:/app/workspace:ro
     depends_on:
       - postgres
 
@@ -137,11 +143,11 @@ services:
       context: ./cdc/wal2json-consumer
     container_name: edp-wal2json-consumer
     environment:
-      PG_HOST: postgres
-      PG_PORT: 5432
-      PG_USER: postgres
-      PG_PASSWORD: postgres
-      PG_DB: appdb
+      PG_HOST: ${PG_HOST:-postgres}
+      PG_PORT: ${PG_PORT:-5432}
+      PG_USER: ${PG_USER:-postgres}
+      PG_PASSWORD: ${PG_PASSWORD:-postgres}
+      PG_DB: ${PG_DB:-appdb}
       SLOT_NAME: wal2json_slot
     depends_on:
       - postgres
@@ -156,11 +162,11 @@ services:
       KAFKA_BOOTSTRAP: kafka:29092
       KAFKA_TOPIC: dbserver1.public.orders
       KAFKA_GROUP: benchmark-debezium-consumer
-      PG_HOST: postgres
-      PG_PORT: 5432
-      PG_USER: postgres
-      PG_PASSWORD: postgres
-      PG_DB: appdb
+      PG_HOST: ${PG_HOST:-postgres}
+      PG_PORT: ${PG_PORT:-5432}
+      PG_USER: ${PG_USER:-postgres}
+      PG_PASSWORD: ${PG_PASSWORD:-postgres}
+      PG_DB: ${PG_DB:-appdb}
     depends_on:
       - kafka
       - connect
@@ -173,11 +179,11 @@ services:
       context: ./cdc/drasi
     container_name: edp-drasi-sink
     environment:
-      PG_HOST: postgres
-      PG_PORT: 5432
-      PG_USER: postgres
-      PG_PASSWORD: postgres
-      PG_DB: appdb
+      PG_HOST: ${PG_HOST:-postgres}
+      PG_PORT: ${PG_PORT:-5432}
+      PG_USER: ${PG_USER:-postgres}
+      PG_PASSWORD: ${PG_PASSWORD:-postgres}
+      PG_DB: ${PG_DB:-appdb}
     ports:
       - "8090:8090"
     depends_on:

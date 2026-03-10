@@ -21,14 +21,5 @@ module "azure_stack" {
   enable_key_vault        = var.azure_enable_key_vault
   enable_vnet_peering     = var.azure_enable_vnet_peering
   remote_vnet_id          = var.azure_remote_vnet_id
-}
-
-module "aws_stack" {
-  source = "./modules/aws_stack"
-  count  = var.deployment_target == "aws" ? 1 : 0
-
-  prefix                  = local.prefix
-  region                  = var.aws_region
-  postgres_admin_username = var.postgres_admin_username
-  postgres_admin_password = var.postgres_admin_password
+  github_repo_url         = var.github_repo_url
 }

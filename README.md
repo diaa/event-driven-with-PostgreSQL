@@ -10,7 +10,7 @@ The repo includes:
 
 - A local Docker environment for PostgreSQL, Kafka, Debezium, monitoring, and demo apps
 - A benchmark dashboard interface for comparing latency and overhead
-- Terraform templates to provision cloud infrastructure (Azure or AWS)
+- Terraform templates to provision Azure cloud infrastructure
 - A Locust-based traffic generator for repeatable load testing
 
 ## Architecture Diagram
@@ -78,14 +78,12 @@ export DATABASE_URL='postgresql://<user>:<password>@<host>:5432/appdb?sslmode=re
 ./scripts/check-cdc-readiness.sh
 ```
 
-PowerShell fallback (optional): `./scripts/setup-debezium.ps1`
-
 ### 4) Run Traffic Generator
 
 ```bash
 cd traffic-generator/locust
 pip install -r requirements.txt
-locust -f locustfile.py --host http://localhost:8080
+locust -f locustfile.py
 ```
 
 If no app API is used, run in database-direct mode with env vars (see `traffic-generator/locust/README.md`).
@@ -139,11 +137,10 @@ See `db/README.md` for schema details and init order.
 
 ## Terraform
 
-`infra/terraform` contains cloud-neutral structure and provider-specific modules:
+`infra/terraform` contains Azure-specific modules:
 
 - `environments/local` for local variable conventions
-- `modules/azure_stack` PostgreSQL + Kafka/Connect + observability base
-- `modules/aws_stack` PostgreSQL + MSK/Connect + observability base
+- `modules/azure_stack` PostgreSQL Flexible Server + Linux VM(s) + Key Vault + observability base
 
 Start with:
 
@@ -157,9 +154,4 @@ For full Azure VM + PostgreSQL details, see `infra/terraform/README.md`.
 
 ## Status
 
-This scaffold is intentionally practical and demo-oriented. Individual module/image versions may need adjustment for your exact talk environment and cloud account constraints.
-
-## Linux-First Notes
-
-- Primary scripts use Bash (`.sh`) and are the default in this repo.
-- PowerShell scripts are kept only as optional compatibility helpers.
+This scaffold is intentionally practical and demo-oriented. Individual module/image versions may need adjustment for your exact talk environment and Azure account constraints.

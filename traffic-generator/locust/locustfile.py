@@ -1,6 +1,5 @@
 import os
 import random
-from datetime import datetime, timezone
 
 import psycopg2
 from faker import Faker
@@ -54,11 +53,10 @@ class PostgresOrderUser(User):
             cur.execute(
                 """
                 UPDATE orders
-                SET status = %s,
-                    updated_at = %s
+                SET status = %s
                 WHERE id IN (
                   SELECT id FROM orders ORDER BY random() LIMIT 1
                 )
                 """,
-                (new_status, datetime.now(timezone.utc)),
+                (new_status,),
             )
