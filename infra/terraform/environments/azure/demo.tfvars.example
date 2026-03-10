@@ -1,0 +1,31 @@
+deployment_target = "azure"
+project_name      = "edp-cdc"
+environment       = "demo"
+
+azure_location = "eastus"
+
+# VM sizing and count
+azure_vm_instance_count = 2
+azure_vm_size           = "Standard_D4s_v5"
+azure_vm_admin_username = "azureuser"
+
+# Restrict this to your office/home/public IP CIDR for better security.
+azure_admin_cidr = "0.0.0.0/0"
+
+# Create Azure Key Vault and store PostgreSQL secrets.
+azure_enable_key_vault = true
+
+# Optional VNet peering settings (disabled by default).
+azure_enable_vnet_peering = false
+# azure_remote_vnet_id     = "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet-name>"
+
+# Provide your SSH public key value directly.
+# Example: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... user@host"
+azure_vm_admin_ssh_public_key = "REPLACE_WITH_YOUR_SSH_PUBLIC_KEY"
+
+# PostgreSQL settings
+postgres_admin_username  = "pgadmin"
+postgres_admin_password  = "REPLACE_WITH_STRONG_PASSWORD"
+azure_postgres_sku_name  = "B_Standard_B1ms"
+azure_postgres_storage_mb = 32768
+azure_postgres_version   = "16"

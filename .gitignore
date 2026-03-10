@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+
+# Runtime artifacts
+benchmarks/results/*.csv
+benchmarks/results/*.json
+*.log
+.env
+
+# OS
+.DS_Store
+Thumbs.db
