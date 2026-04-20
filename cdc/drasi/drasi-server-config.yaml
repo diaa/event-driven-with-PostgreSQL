@@ -1,0 +1,98 @@
+host: 0.0.0.0
+port: 8080
+logLevel: info
+
+sources:
+  - kind: postgres
+    id: orders-db
+    autoStart: true
+    host: ${PG_HOST:-postgres}
+    port: ${PG_PORT:-5432}
+    database: ${PG_DB:-appdb}
+    user: ${PG_USER:-postgres}
+    password: ${PG_PASSWORD:-postgres}
+    publicationName: app_cdc_pub
+    slotName: drasi_slot
+    tables:
+      - public.orders
+    bootstrapProvider:
+      kind: postgres
+
+queries:
+  # Unfiltered query — captures all order changes for benchmark parity
+  - id: all-orders
+    autoStart: true
+    query: |
+      MATCH (o:orders)
+      RETURN o.id AS id, o.customer_id AS customer_id, o.amount AS amount,
+             o.status AS status, o.updated_at AS updated_at
+    queryLanguage: Cypher
+    sources:
+      - sourceId: orders-db
+    enableBootstrap: false
+
+  # Filtered query — demonstrates Drasi's declarative filtering
+  - id: high-value-orders
+    autoStart: true
+    query: |
+      MATCH (o:orders)
+      WHERE o.amount >= 500 AND o.status IN ['PAID', 'SHIPPED']
+      RETURN o.id AS id, o.customer_id AS customer_id, o.amount AS amount,
+             o.status AS status, o.updated_at AS updated_at
+    queryLanguage: Cypher
+    sources:
+      - sourceId: orders-db
+    enableBootstrap: false
+
+reactions:
+  # HTTP reaction — posts all order changes to the benchmark sink (parity with wal2json/debezium)
+  - kind: http
+    id: benchmark-sink
+    queries: [all-orders]
+    autoStart: true
+    baseUrl: http://drasi-sink:8090
+    routes:
+      all-orders:
+        added:
+          url: /events
+          method: POST
+          body: |
+            {"event_id": "{{after.id}}", "source_commit_ts": "{{after.updated_at}}", "operation": "INSERT"}
+          headers:
+            Content-Type: application/json
+        updated:
+          url: /events
+          method: POST
+          body: |
+            {"event_id": "{{after.id}}", "source_commit_ts": "{{after.updated_at}}", "operation": "UPDATE"}
+          headers:
+            Content-Type: application/json
+
+  # HTTP reaction — posts only high-value paid/shipped orders to the filtered endpoint
+  - kind: http
+    id: filtered-sink
+    queries: [high-value-orders]
+    autoStart: true
+    baseUrl: http://drasi-sink:8090
+    routes:
+      high-value-orders:
+        added:
+          url: /filtered-events
+          method: POST
+          body: |
+            {"event_id": "{{after.id}}", "source_commit_ts": "{{after.updated_at}}", "operation": "INSERT", "query_id": "high-value-orders"}
+          headers:
+            Content-Type: application/json
+        updated:
+          url: /filtered-events
+          method: POST
+          body: |
+            {"event_id": "{{after.id}}", "source_commit_ts": "{{after.updated_at}}", "operation": "UPDATE", "query_id": "high-value-orders"}
+          headers:
+            Content-Type: application/json
+
+  # Log reaction — prints filtered high-value order events to console
+  - kind: log
+    id: filtered-log
+    queries: [high-value-orders]
+    autoStart: true

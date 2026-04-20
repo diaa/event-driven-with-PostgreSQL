@@ -2,7 +2,7 @@
   "annotations": {"list": []},
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": null,
   "links": [],
   "liveNow": false,
@@ -14,7 +14,7 @@
       "id": 1,
       "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
       "targets": [
-        {"expr": "sum(rate(pg_stat_database_xact_commit[1m]))", "refId": "A"}
+        {"expr": "sum(rate(pg_stat_database_xact_commit[1m]))", "legendFormat": "commits/s", "refId": "A"}
       ],
       "title": "Transactions/sec",
       "type": "timeseries"
@@ -24,22 +24,74 @@
       "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
       "id": 2,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
       "targets": [
-        {"expr": "sum(rate(pg_stat_database_tup_inserted[1m]))", "refId": "A"}
+        {"expr": "sum(rate(pg_stat_database_tup_inserted[1m]))", "legendFormat": "inserts/s", "refId": "A"},
+        {"expr": "sum(rate(pg_stat_database_tup_updated[1m]))", "legendFormat": "updates/s", "refId": "B"}
       ],
-      "title": "Inserted tuples/sec",
+      "title": "Tuples Written/sec",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 4,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [
+        {"expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100)", "legendFormat": "CPU %", "refId": "A"}
+      ],
+      "title": "Host CPU Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 5,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [
+        {"expr": "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes", "legendFormat": "Used", "refId": "A"},
+        {"expr": "node_memory_MemAvailable_bytes", "legendFormat": "Available", "refId": "B"}
+      ],
+      "title": "Host Memory Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "Bps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "id": 6,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [
+        {"expr": "sum(rate(node_network_receive_bytes_total{device!=\"lo\"}[1m]))", "legendFormat": "Receive", "refId": "A"},
+        {"expr": "sum(rate(node_network_transmit_bytes_total{device!=\"lo\"}[1m]))", "legendFormat": "Transmit", "refId": "B"}
+      ],
+      "title": "Host Network I/O",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "id": 7,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [
+        {"expr": "pg_replication_slots_pg_wal_lsn_diff", "legendFormat": "{{slot_name}}", "refId": "A"}
+      ],
+      "title": "Replication Slot WAL Lag (bytes retained)",
       "type": "timeseries"
     },
     {
       "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
       "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24},
       "id": 3,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
       "targets": [
-        {"expr": "pg_replication_slots_active", "refId": "A"},
-        {"expr": "pg_replication_slots_restart_lsn_bytes", "refId": "B"}
+        {"expr": "pg_replication_slots_active", "legendFormat": "{{slot_name}} active", "refId": "A"}
       ],
-      "title": "Replication Slots and Restart LSN Bytes",
+      "title": "Replication Slots Active",
       "type": "timeseries"
     }
   ],
@@ -53,6 +105,6 @@
   "timezone": "",
   "title": "PostgreSQL CDC Overview",
   "uid": "postgres-cdc-overview",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

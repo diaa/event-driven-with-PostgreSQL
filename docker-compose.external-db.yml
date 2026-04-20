@@ -1,0 +1,51 @@
+# Compose override for external database mode.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.external-db.yml up -d --build
+#   docker compose -f docker-compose.yml -f docker-compose.external-db.yml --profile consumers up -d
+#
+# Requires .env with: PG_HOST, PG_PORT, PG_USER, PG_PASSWORD, PG_DB
+# The embedded 'postgres' service is replaced by a no-op container so that
+# depends_on references remain valid while no local database is started.
+
+services:
+  postgres:
+    entrypoint: ["sleep", "infinity"]
+    restart: "no"
+
+  postgres-exporter:
+    environment:
+      DATA_SOURCE_NAME: postgresql://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DB}?sslmode=${PG_SSLMODE:-require}
+
+  benchmark-dashboard:
+    environment:
+      PG_SSLMODE: ${PG_SSLMODE:-require}
+
+  wal2json-consumer:
+    environment:
+      PG_SSLMODE: ${PG_SSLMODE:-require}
+
+  debezium-consumer:
+    environment:
+      PG_SSLMODE: ${PG_SSLMODE:-require}
+
+  drasi-consumer:
+    environment:
+      PG_SSLMODE: ${PG_SSLMODE:-require}
+
+  drasi-server:
+    environment:
+      PG_SSLMODE: ${PG_SSLMODE:-require}
+
+  drasi-sink:
+    environment:
+      PG_SSLMODE: ${PG_SSLMODE:-require}
+
+  locust:
+    environment:
+      PG_HOST: ${PG_HOST}
+      PG_PORT: ${PG_PORT:-5432}
+      PG_DB: ${PG_DB}
+      PG_USER: ${PG_USER}
+      PG_PASSWORD: ${PG_PASSWORD}
+      PG_SSLMODE: ${PG_SSLMODE:-require}

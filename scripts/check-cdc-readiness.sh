@@ -2,11 +2,35 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+MAX_RETRIES="${MAX_RETRIES:-5}"
+RETRY_INTERVAL="${RETRY_INTERVAL:-2}"
 
+# Build DATABASE_URL from individual env vars if not set directly
 if [[ -z "${DATABASE_URL:-}" ]]; then
-  echo "DATABASE_URL is required."
-  exit 1
+  PG_HOST="${PG_HOST:-localhost}"
+  PG_PORT="${PG_PORT:-5432}"
+  PG_USER="${PG_USER:-postgres}"
+  PG_PASSWORD="${PG_PASSWORD:-postgres}"
+  PG_DB="${PG_DB:-appdb}"
+  PG_SSLMODE="${PG_SSLMODE:-disable}"
+  DATABASE_URL="postgresql://${PG_USER}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT}/${PG_DB}?sslmode=${PG_SSLMODE}"
 fi
+
+echo "=== CDC Readiness Check ==="
+echo "Target: ${DATABASE_URL%%@*}@..."
+
+# Connectivity retry
+attempt=0
+until psql "${DATABASE_URL}" -c "SELECT 1" &>/dev/null; do
+  attempt=$((attempt + 1))
+  if [[ $attempt -ge $MAX_RETRIES ]]; then
+    echo "FAIL: Cannot connect to database."
+    exit 1
+  fi
+  echo "Waiting for database (${attempt}/${MAX_RETRIES}) ..."
+  sleep "${RETRY_INTERVAL}"
+done
+echo "OK: Database connection established."
 
 psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 <<'SQL'
 SELECT name, setting

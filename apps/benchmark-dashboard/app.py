@@ -14,6 +14,7 @@ PG_PORT = int(os.getenv("PG_PORT", "5432"))
 PG_USER = os.getenv("PG_USER", "postgres")
 PG_PASSWORD = os.getenv("PG_PASSWORD", "postgres")
 PG_DB = os.getenv("PG_DB", "appdb")
+PG_SSLMODE = os.getenv("PG_SSLMODE", "disable")
 
 LOC_TABLE = {
     "wal2json": "cdc/wal2json-consumer",
@@ -32,6 +33,7 @@ def load_data() -> pd.DataFrame:
         user=PG_USER,
         password=PG_PASSWORD,
         dbname=PG_DB,
+        sslmode=PG_SSLMODE,
     )
     sql = """
       SELECT approach, source_event_id, source_commit_ts, observed_at,

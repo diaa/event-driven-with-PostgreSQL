@@ -1,5 +1,11 @@
 -- Publication for table-level CDC demo.
-CREATE PUBLICATION app_cdc_pub FOR TABLE orders;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'app_cdc_pub') THEN
+    CREATE PUBLICATION app_cdc_pub FOR TABLE orders;
+  END IF;
+END
+$$;
 
 -- Optional advanced publication when demonstrating multi-table capture.
 DO $$

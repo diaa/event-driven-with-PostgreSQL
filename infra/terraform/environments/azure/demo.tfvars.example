@@ -19,9 +19,11 @@ azure_enable_key_vault = true
 azure_enable_vnet_peering = false
 # azure_remote_vnet_id     = "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet-name>"
 
-# Provide your SSH public key value directly.
-# Example: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... user@host"
-azure_vm_admin_ssh_public_key = "REPLACE_WITH_YOUR_SSH_PUBLIC_KEY"
+# VM password (min 12 chars, must include upper + lower + digit + special)
+azure_vm_admin_password = "REPLACE_WITH_VM_PASSWORD"
+
+# Optional: provide an SSH public key for key-based login in addition to password.
+# azure_vm_admin_ssh_public_key = "ssh-ed25519 AAAAC3..."
 
 # PostgreSQL settings
 postgres_admin_username  = "pgadmin"
@@ -32,4 +34,3 @@ azure_postgres_version   = "16"
 
 # GitHub repo URL to clone onto VMs (update if you forked this repo)
 github_repo_url = "https://github.com/diaa/event-driven-with-PostgreSQL.git"
-azure_postgres_version   = "16"

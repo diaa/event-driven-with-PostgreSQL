@@ -80,14 +80,14 @@ This is the recommended path for your session when you want a self-contained Azu
 Use `environments/azure/demo.tfvars.example` as template and provide:
 
 - `deployment_target = "azure"`
-- `azure_vm_admin_ssh_public_key` (your real SSH public key)
+- `azure_vm_admin_password` (min 12 chars, must include upper + lower + digit + special)
 - `postgres_admin_password` (strong password)
-
-- `github_repo_url` (if you forked this repo)
 
 Optional but recommended:
 
+- `azure_vm_admin_ssh_public_key` (for key-based login in addition to password)
 - Restrict `azure_admin_cidr` to your public IP/CIDR
+- `github_repo_url` (if you forked this repo)
 - Tune VM and PostgreSQL size based on load
 
 Default in this repo:
@@ -140,3 +140,30 @@ terraform apply -var-file=environments/azure/demo.tfvars
 
 - After `terraform apply`, VMs automatically clone the repo, build containers, init the DB, and register Debezium. SSH in and check `/var/log/edp-bootstrap.done` to confirm completion.
 - Keep tfvars with secrets out of source control.
+
+### External DB Mode (Compose Override)
+
+When Terraform provisions Azure infrastructure, the VM bootstrap uses `docker-compose.external-db.yml` to disable the embedded PostgreSQL container and connect all services to Azure Flexible Server. The `.env` written by cloud-init includes `PG_SSLMODE=require`.
+
+Manual equivalent for local testing with an external database:
+
+```bash
+# Create .env with your external DB coordinates
+cat > .env <<EOF
+PG_HOST=your-server.postgres.database.azure.com
+PG_PORT=5432
+PG_USER=pgadmin
+PG_PASSWORD=YourPassword
+PG_DB=appdb
+PG_SSLMODE=require
+DATABASE_URL=postgresql://pgadmin:YourPassword@your-server.postgres.database.azure.com:5432/appdb?sslmode=require
+EOF
+
+# Start with external-db override
+docker compose -f docker-compose.yml -f docker-compose.external-db.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.external-db.yml --profile consumers up -d
+```
+
+### Bicep Alternative
+
+See `infra/bicep/` for a single-file Bicep deployment with Rocky Linux 9, GP-tier PostgreSQL, and `wal2json` pre-configured in `shared_preload_libraries`.

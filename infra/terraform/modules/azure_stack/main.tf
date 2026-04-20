@@ -37,11 +37,12 @@ locals {
         PG_USER=${var.postgres_admin_username}
         PG_PASSWORD=${var.postgres_admin_password}
         PG_DB=appdb
+        PG_SSLMODE=require
         DATABASE_URL=postgresql://${var.postgres_admin_username}:${var.postgres_admin_password}@${local.name_prefix}pg.${var.prefix}.postgres.database.azure.com:5432/appdb?sslmode=require
         EOF
       - chmod 600 /opt/edp-cdc/.env
       # Build and start Docker Compose services
-      - cd /opt/edp-cdc && docker compose up -d --build
+      - cd /opt/edp-cdc && docker compose -f docker-compose.yml -f docker-compose.external-db.yml up -d --build
       # Wait for services to be ready
       - sleep 15
       # Initialize DB schema on Azure Flexible Server
@@ -300,11 +301,15 @@ resource "azurerm_linux_virtual_machine" "vm" {
     azurerm_network_interface.vm[count.index].id,
   ]
 
-  disable_password_authentication = true
+  admin_password                  = var.vm_admin_password
+  disable_password_authentication = false
 
-  admin_ssh_key {
-    username   = var.vm_admin_username
-    public_key = var.vm_admin_ssh_public_key
+  dynamic "admin_ssh_key" {
+    for_each = var.vm_admin_ssh_public_key != "" ? [1] : []
+    content {
+      username   = var.vm_admin_username
+      public_key = var.vm_admin_ssh_public_key
+    }
   }
 
   os_disk {

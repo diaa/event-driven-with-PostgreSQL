@@ -69,7 +69,7 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
 
   connect:
-    image: debezium/connect:2.7
+    image: debezium/connect:2.7.3.Final
     container_name: edp-connect
     depends_on:
       - kafka
@@ -94,7 +94,22 @@ services:
     ports:
       - "9187:9187"
     environment:
-      DATA_SOURCE_NAME: postgresql://${PG_USER:-postgres}:${PG_PASSWORD:-postgres}@${PG_HOST:-postgres}:${PG_PORT:-5432}/${PG_DB:-appdb}?sslmode=disable
+      DATA_SOURCE_NAME: postgresql://${PG_USER:-postgres}:${PG_PASSWORD:-postgres}@${PG_HOST:-postgres}:${PG_PORT:-5432}/${PG_DB:-appdb}?sslmode=${PG_SSLMODE:-disable}
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.1
+    container_name: edp-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
 
   prometheus:
     image: prom/prometheus:v2.52.0
@@ -105,6 +120,7 @@ services:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     depends_on:
       - postgres-exporter
+      - node-exporter
 
   grafana:
     image: grafana/grafana:11.0.0
@@ -131,6 +147,7 @@ services:
       PG_USER: ${PG_USER:-postgres}
       PG_PASSWORD: ${PG_PASSWORD:-postgres}
       PG_DB: ${PG_DB:-appdb}
+      PG_SSLMODE: ${PG_SSLMODE:-disable}
       WORKSPACE_ROOT: /app/workspace
     volumes:
       - ./benchmarks/results:/app/results
@@ -148,6 +165,8 @@ services:
       PG_USER: ${PG_USER:-postgres}
       PG_PASSWORD: ${PG_PASSWORD:-postgres}
       PG_DB: ${PG_DB:-appdb}
+      PG_SSLMODE: ${PG_SSLMODE:-disable}
+      RUN_LABEL: ${RUN_LABEL:-}
       SLOT_NAME: wal2json_slot
     depends_on:
       - postgres
@@ -167,12 +186,54 @@ services:
       PG_USER: ${PG_USER:-postgres}
       PG_PASSWORD: ${PG_PASSWORD:-postgres}
       PG_DB: ${PG_DB:-appdb}
+      PG_SSLMODE: ${PG_SSLMODE:-disable}
+      RUN_LABEL: ${RUN_LABEL:-}
     depends_on:
       - kafka
       - connect
       - postgres
     profiles:
       - consumers
+
+  drasi-consumer:
+    build:
+      context: ./cdc/drasi
+      dockerfile: Dockerfile.consumer
+    container_name: edp-drasi-consumer
+    environment:
+      PG_HOST: ${PG_HOST:-postgres}
+      PG_PORT: ${PG_PORT:-5432}
+      PG_USER: ${PG_USER:-postgres}
+      PG_PASSWORD: ${PG_PASSWORD:-postgres}
+      PG_DB: ${PG_DB:-appdb}
+      PG_SSLMODE: ${PG_SSLMODE:-disable}
+      RUN_LABEL: ${RUN_LABEL:-}
+      SLOT_NAME: drasi_slot
+      PUBLICATION: app_cdc_pub
+    depends_on:
+      - postgres
+    profiles:
+      - consumers
+
+  drasi-server:
+    image: ghcr.io/drasi-project/drasi-server:latest
+    container_name: edp-drasi-server
+    ports:
+      - "8080:8080"
+    environment:
+      PG_HOST: ${PG_HOST:-postgres}
+      PG_PORT: ${PG_PORT:-5432}
+      PG_USER: ${PG_USER:-postgres}
+      PG_PASSWORD: ${PG_PASSWORD:-postgres}
+      PG_DB: ${PG_DB:-appdb}
+    volumes:
+      - ./cdc/drasi/drasi-server-config.yaml:/config/server.yaml:ro
+    command: ["--config", "/config/server.yaml"]
+    depends_on:
+      - postgres
+      - drasi-sink
+    profiles:
+      - drasi
 
   drasi-sink:
     build:
@@ -184,12 +245,42 @@ services:
       PG_USER: ${PG_USER:-postgres}
       PG_PASSWORD: ${PG_PASSWORD:-postgres}
       PG_DB: ${PG_DB:-appdb}
+      PG_SSLMODE: ${PG_SSLMODE:-disable}
     ports:
       - "8090:8090"
     depends_on:
       - postgres
     profiles:
       - drasi
+
+  locust:
+    build:
+      context: ./traffic-generator/locust
+    container_name: edp-locust
+    ports:
+      - "8089:8089"
+    environment:
+      PG_HOST: ${PG_HOST:-postgres}
+      PG_PORT: ${PG_PORT:-5432}
+      PG_DB: ${PG_DB:-appdb}
+      PG_USER: ${PG_USER:-postgres}
+      PG_PASSWORD: ${PG_PASSWORD:-postgres}
+      PG_SSLMODE: ${PG_SSLMODE:-disable}
+      RUN_LABEL: ${RUN_LABEL:-}
+      LOCUST_USERS: ${LOCUST_USERS:-50}
+      LOCUST_SPAWN_RATE: ${LOCUST_SPAWN_RATE:-10}
+      LOCUST_RUN_TIME: ${LOCUST_RUN_TIME:-5m}
+    command: >
+      -f /mnt/locust/locustfile.py
+      --host http://localhost
+      --autostart
+      --users ${LOCUST_USERS:-50}
+      --spawn-rate ${LOCUST_SPAWN_RATE:-10}
+      --run-time ${LOCUST_RUN_TIME:-5m}
+    depends_on:
+      - postgres
+    profiles:
+      - load
 
 volumes:
   pgdata:

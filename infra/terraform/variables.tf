@@ -45,8 +45,14 @@ variable "azure_vm_admin_username" {
   default     = "azureuser"
 }
 
+variable "azure_vm_admin_password" {
+  description = "Password for Linux VM admin user"
+  type        = string
+  sensitive   = true
+}
+
 variable "azure_vm_admin_ssh_public_key" {
-  description = "SSH public key for Linux VM authentication"
+  description = "Optional SSH public key for Linux VM (leave empty to use password only)"
   type        = string
   default     = ""
 }

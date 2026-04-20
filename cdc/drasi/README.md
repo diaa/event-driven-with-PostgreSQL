@@ -1,30 +1,64 @@
 # Drasi + PostgreSQL
 
-This directory contains starter assets for a Drasi-based CDC path where continuous queries filter change events before downstream action.
+This directory contains assets for the Drasi-based CDC path, using [Drasi Server](https://drasi.io/drasi-server/) to run continuous queries over PostgreSQL logical replication and forward matching changes to the benchmark sink via HTTP webhook.
 
-## Why Drasi in this repo
+## How It Works
 
-- Declarative query/filter layer on top of change streams
-- Reduced custom code compared with hand-written consumers
-- Useful when event routing and enrichment logic evolves frequently
+1. **Drasi Server** connects to PostgreSQL using logical replication (publication `app_cdc_pub`)
+2. **Continuous queries** (Cypher) evaluate every change in real-time
+3. An **HTTP reaction** forwards matched events to the `drasi-sink` webhook
+4. The **sink recorder** writes latency observations to `benchmark_events`
 
 ## Contents
 
-- `query.sql` sample continuous query intent
-- `pipeline-notes.md` wiring notes for a local or cloud deployment
+- `drasi-server-config.yaml` — Full Drasi Server configuration (source, queries, reactions)
+- `sink_recorder.py` — FastAPI webhook that records benchmark events
+- `query.sql` — Reference copy of the Cypher continuous queries
+- `Dockerfile` — Container for the sink recorder
+- `pipeline-notes.md` — Architecture notes
 
-## Run (Suggested)
+## Queries
 
-1. Deploy Drasi components (Kubernetes or your preferred runtime).
-2. Configure PostgreSQL source against logical replication publication `app_cdc_pub`.
-3. Register `query.sql` as the filter for high-value order events.
-4. Emit results to a sink (webhook, queue, or topic).
-5. Log sink observation timestamps into `benchmark_events` with `approach='drasi'`.
+Two continuous queries are defined in `drasi-server-config.yaml`:
+
+| Query ID | Purpose | Filter |
+|---|---|---|
+| `all-orders` | Benchmark parity with wal2json/debezium | None (captures all changes) |
+| `high-value-orders` | Demonstrates Drasi filtering | `amount >= 500 AND status IN ['PAID', 'SHIPPED']` |
+
+## Run (Docker Compose)
+
+```bash
+docker compose --profile drasi up -d --build
+```
+
+This starts:
+- `edp-drasi-server` — Drasi Server container (`ghcr.io/drasi-project/drasi-server:latest`)
+- `edp-drasi-sink` — Benchmark sink webhook
+
+Verify Drasi Server is running:
+
+```bash
+curl http://localhost:8080/health
+```
+
+View current query results:
+
+```bash
+curl http://localhost:8080/api/v1/queries/all-orders/results
+curl http://localhost:8080/api/v1/queries/high-value-orders/results
+```
+
+View Drasi Server logs (shows filtered events via log reaction):
+
+```bash
+docker logs -f edp-drasi-server
+```
 
 ## Benchmarking Parity
 
 To compare fairly with wal2json and Debezium:
 
-- Use same source table (`orders`)
-- Use same traffic profile (Locust)
-- Use same latency formula (source commit timestamp -> observed timestamp)
+- The `all-orders` query captures the same source table (`orders`) with no filter
+- Same traffic profile (Locust)
+- Same latency formula (source commit timestamp → observed timestamp)

@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from datetime import datetime, timezone
 
 import psycopg2
@@ -16,14 +17,16 @@ PG_PORT = int(os.getenv("PG_PORT", "5432"))
 PG_USER = os.getenv("PG_USER", "postgres")
 PG_PASSWORD = os.getenv("PG_PASSWORD", "postgres")
 PG_DB = os.getenv("PG_DB", "appdb")
+PG_SSLMODE = os.getenv("PG_SSLMODE", "disable")
 
+RUN_LABEL = os.getenv("RUN_LABEL", "")
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", "100"))
 
 
 def pg_dsn() -> str:
     return (
         f"host={PG_HOST} port={PG_PORT} dbname={PG_DB} "
-        f"user={PG_USER} password={PG_PASSWORD}"
+        f"user={PG_USER} password={PG_PASSWORD} sslmode={PG_SSLMODE}"
     )
 
 
@@ -54,7 +57,7 @@ def benchmark_row(record_payload: dict, raw_value: bytes) -> tuple:
         parse_latency_ms(record_payload),
         len(raw_value),
         op,
-        "debezium kafka consumer",
+        f"debezium kafka consumer{' [' + RUN_LABEL + ']' if RUN_LABEL else ''}",
     )
 
 
@@ -71,7 +74,10 @@ def flush_rows(conn, rows: list[tuple]) -> None:
     conn.commit()
 
 
-def main() -> None:
+RETRY_DELAY = int(os.getenv("RETRY_DELAY", "3"))
+
+
+def run_consumer() -> None:
     consumer = Consumer(
         {
             "bootstrap.servers": KAFKA_BOOTSTRAP,
@@ -104,12 +110,29 @@ def main() -> None:
                 flush_rows(pg_conn, rows)
                 print(f"Flushed {len(rows)} Debezium rows")
                 rows.clear()
-    except KeyboardInterrupt:
-        print("Stopping Debezium consumer...")
     finally:
         flush_rows(pg_conn, rows)
-        consumer.close()
-        pg_conn.close()
+        try:
+            consumer.close()
+        except Exception:
+            pass
+        try:
+            pg_conn.close()
+        except Exception:
+            pass
+
+
+def main() -> None:
+    while True:
+        try:
+            run_consumer()
+        except KeyboardInterrupt:
+            print("Stopping Debezium consumer...")
+            break
+        except Exception as exc:
+            print(f"Debezium consumer error: {exc}")
+            print(f"Reconnecting in {RETRY_DELAY}s ...")
+            time.sleep(RETRY_DELAY)
 
 
 if __name__ == "__main__":

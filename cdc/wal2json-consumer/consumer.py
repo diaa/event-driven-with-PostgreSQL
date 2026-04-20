@@ -14,16 +14,18 @@ PG_PORT = int(os.getenv("PG_PORT", "5432"))
 PG_USER = os.getenv("PG_USER", "postgres")
 PG_PASSWORD = os.getenv("PG_PASSWORD", "postgres")
 PG_DB = os.getenv("PG_DB", "appdb")
+PG_SSLMODE = os.getenv("PG_SSLMODE", "disable")
 
 SLOT_NAME = os.getenv("SLOT_NAME", "wal2json_slot")
 PUBLICATION = os.getenv("PUBLICATION", "app_cdc_pub")
+RUN_LABEL = os.getenv("RUN_LABEL", "")
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", "100"))
 
 
 def dsn(dbname: str) -> str:
     return (
         f"host={PG_HOST} port={PG_PORT} dbname={dbname} "
-        f"user={PG_USER} password={PG_PASSWORD}"
+        f"user={PG_USER} password={PG_PASSWORD} sslmode={PG_SSLMODE}"
     )
 
 
@@ -67,7 +69,7 @@ def extract_event_rows(payload_obj: dict) -> list[dict]:
                 "latency_ms": latency_ms,
                 "payload_bytes": len(json.dumps(item)),
                 "operation": op,
-                "notes": "custom logical consumer",
+                "notes": f"custom logical consumer{' [' + RUN_LABEL + ']' if RUN_LABEL else ''}",
             }
         )
     return rows
@@ -99,7 +101,10 @@ def write_benchmark_rows(conn, rows: list[dict]) -> None:
     conn.commit()
 
 
-def main() -> None:
+RETRY_DELAY = int(os.getenv("RETRY_DELAY", "3"))
+
+
+def run_stream() -> None:
     metrics_conn = psycopg2.connect(dsn(PG_DB), cursor_factory=RealDictCursor)
     repl_conn = psycopg2.connect(
         dsn(PG_DB), connection_factory=LogicalReplicationConnection
@@ -132,19 +137,31 @@ def main() -> None:
                 "add-tables": "public.orders",
                 "include-lsn": 1,
                 "include-timestamp": 1,
-                "write-in-chunks": 1,
             },
         )
         repl_cur.consume_stream(on_message)
-    except KeyboardInterrupt:
-        print("Stopping wal2json consumer...")
     finally:
         if buffer:
             write_benchmark_rows(metrics_conn, buffer)
         time.sleep(0.2)
-        repl_cur.close()
-        repl_conn.close()
-        metrics_conn.close()
+        for c in (repl_cur, repl_conn, metrics_conn):
+            try:
+                c.close()
+            except Exception:
+                pass
+
+
+def main() -> None:
+    while True:
+        try:
+            run_stream()
+        except KeyboardInterrupt:
+            print("Stopping wal2json consumer...")
+            break
+        except Exception as exc:
+            print(f"wal2json stream error: {exc}")
+            print(f"Reconnecting in {RETRY_DELAY}s ...")
+            time.sleep(RETRY_DELAY)
 
 
 if __name__ == "__main__":

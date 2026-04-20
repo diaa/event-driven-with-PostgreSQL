@@ -1,21 +1,35 @@
 # Pipeline Notes
 
-These notes are a checklist for wiring Drasi in the talk environment.
+Architecture overview for the Drasi CDC path.
 
-1. Source setup:
-- PostgreSQL logical replication enabled (`wal_level=logical`)
-- Publication exists (`app_cdc_pub`)
-- Dedicated slot/user for Drasi source
+## Data Flow
 
-2. Query registration:
-- Register `query.sql` as continuous query
-- Route matched events to a sink endpoint
+```
+PostgreSQL (orders table)
+  → WAL logical replication (publication: app_cdc_pub)
+  → Drasi Server (source: orders-db, slot: drasi_slot)
+  → Continuous Query evaluation (Cypher)
+  → HTTP Reaction → drasi-sink webhook (POST /events)
+  → benchmark_events table (approach='drasi')
+```
 
-3. Sink behavior:
-- Sink handler writes observations to `benchmark_events`
-- Required columns: `approach`, `source_event_id`, `source_commit_ts`, `observed_at`, `latency_ms`
+## Components
 
-4. Operational checks:
-- Watch replication slot lag
-- Verify sink throughput under load
-- Capture CPU/network metrics in Grafana during benchmark window
+1. **Drasi Server** (`ghcr.io/drasi-project/drasi-server:latest`)
+   - Configured via `drasi-server-config.yaml`
+   - Connects to PostgreSQL using the `postgres` source plugin
+   - Creates replication slot `drasi_slot` automatically
+   - Evaluates two Cypher continuous queries in real-time
+
+2. **Sink Recorder** (`sink_recorder.py`)
+   - FastAPI app receiving HTTP POST from Drasi's HTTP reaction
+   - Parses `event_id`, `source_commit_ts`, `operation` from the body template
+   - Computes `latency_ms` = observed_at − source_commit_ts
+   - Writes to `benchmark_events` with `approach='drasi'`
+
+## Operational Checks
+
+- Drasi Server health: `curl http://localhost:8080/health`
+- Query results: `curl http://localhost:8080/api/v1/queries/all-orders/results`
+- Watch replication slot lag in Grafana or via `scripts/wal-safety.sql`
+- Drasi Server logs: `docker logs -f edp-drasi-server`

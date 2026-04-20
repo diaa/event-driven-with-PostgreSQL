@@ -16,6 +16,7 @@ module "azure_stack" {
   vm_instance_count       = var.azure_vm_instance_count
   vm_size                 = var.azure_vm_size
   vm_admin_username       = var.azure_vm_admin_username
+  vm_admin_password       = var.azure_vm_admin_password
   vm_admin_ssh_public_key = var.azure_vm_admin_ssh_public_key
   admin_cidr              = var.azure_admin_cidr
   enable_key_vault        = var.azure_enable_key_vault

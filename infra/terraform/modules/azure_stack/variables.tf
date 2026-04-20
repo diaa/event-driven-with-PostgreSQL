@@ -51,9 +51,16 @@ variable "vm_admin_username" {
   default     = "azureuser"
 }
 
-variable "vm_admin_ssh_public_key" {
-  description = "SSH public key value for VM login"
+variable "vm_admin_password" {
+  description = "Password for VM admin user"
   type        = string
+  sensitive   = true
+}
+
+variable "vm_admin_ssh_public_key" {
+  description = "Optional SSH public key value for VM login (leave empty to use password only)"
+  type        = string
+  default     = ""
 }
 
 variable "admin_cidr" {
