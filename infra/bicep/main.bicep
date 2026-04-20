@@ -222,10 +222,10 @@ runcmd:
   - dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   - systemctl enable --now docker
   - usermod -aG docker {0}
-  - git clone {1} /opt/edp-cdc
-  - chown -R {0}:{0} /opt/edp-cdc
+  - git clone {1} /home/{0}/edp-cdc
+  - chown -R {0}:{0} /home/{0}/edp-cdc
   - |
-    cat > /opt/edp-cdc/.env <<EOF
+    cat > /home/{0}/edp-cdc/.env <<EOF
     PG_HOST={2}
     PG_PORT=5432
     PG_USER={3}
@@ -234,11 +234,11 @@ runcmd:
     PG_SSLMODE=require
     DATABASE_URL=postgresql://{3}:{4}@{2}:5432/appdb?sslmode=require
     EOF
-  - chmod 600 /opt/edp-cdc/.env
-  - cd /opt/edp-cdc && docker compose -f docker-compose.yml -f docker-compose.external-db.yml up -d --build
+  - chmod 600 /home/{0}/edp-cdc/.env
+  - cd /home/{0}/edp-cdc && docker compose -f docker-compose.yml -f docker-compose.external-db.yml up -d --build
   - sleep 15
-  - cd /opt/edp-cdc && export DATABASE_URL="postgresql://{3}:{4}@{2}:5432/appdb?sslmode=require" && bash scripts/init-demo-db.sh
-  - cd /opt/edp-cdc && DB_HOST={2} DB_USER={3} DB_PASSWORD={4} DB_SSLMODE=require bash scripts/setup-debezium.sh
+  - cd /home/{0}/edp-cdc && export DATABASE_URL="postgresql://{3}:{4}@{2}:5432/appdb?sslmode=require" && bash scripts/init-demo-db.sh
+  - cd /home/{0}/edp-cdc && DB_HOST={2} DB_USER={3} DB_PASSWORD={4} DB_SSLMODE=require bash scripts/setup-debezium.sh
   - echo "Bootstrap complete" > /var/log/edp-bootstrap.done
 '''
 
