@@ -75,6 +75,7 @@ else
 fi
 
 psql "${DB_URL}" <<SQL
+-- All Drasi events (benchmark parity with wal2json/debezium)
 SELECT
   '${APPROACH}' AS approach,
   count(*) AS total_events,
@@ -83,8 +84,28 @@ SELECT
   round(percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms)::numeric, 2) AS p95_ms,
   round(percentile_cont(0.99) WITHIN GROUP (ORDER BY latency_ms)::numeric, 2) AS p99_ms
 FROM benchmark_events
-WHERE approach = '${APPROACH}';
+WHERE approach = '${APPROACH}' AND notes NOT LIKE '%filtered%';
 SQL
+
+echo ""
+echo "High-value filtered orders (amount >= 500, status IN PAID/SHIPPED):"
+psql "${DB_URL}" <<SQL
+SELECT
+  'drasi-filtered' AS approach,
+  count(*) AS total_events,
+  round(avg(latency_ms)::numeric, 2) AS avg_latency_ms,
+  round(percentile_cont(0.50) WITHIN GROUP (ORDER BY latency_ms)::numeric, 2) AS p50_ms,
+  round(percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms)::numeric, 2) AS p95_ms,
+  round(percentile_cont(0.99) WITHIN GROUP (ORDER BY latency_ms)::numeric, 2) AS p99_ms
+FROM benchmark_events
+WHERE approach = '${APPROACH}' AND notes LIKE '%filtered%';
+SQL
+
+echo ""
+echo "Talking point: Drasi captured the same stream but ALSO applied a"
+echo "declarative filter — only high-value paid/shipped orders — with zero"
+echo "extra infrastructure. wal2json and Debezium would need downstream"
+echo "application code or a stream processor to achieve this."
 
 # --- Stop consumer ---
 echo ""
