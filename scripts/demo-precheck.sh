@@ -40,6 +40,23 @@ check "benchmark_events table exists" psql "${DB_URL}" -tAc "SELECT 1 FROM infor
 
 echo ""
 
+# --- Docker Containers ---
+echo "[Docker Containers]"
+check "Docker daemon running" docker info
+for ctr in edp-postgres edp-zookeeper edp-kafka edp-connect edp-kafka-ui edp-postgres-exporter edp-node-exporter edp-prometheus edp-grafana edp-benchmark-dashboard; do
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${ctr}$"; then
+    echo "  ✓ ${ctr} running"
+    PASS=$((PASS + 1))
+  elif docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^${ctr}$"; then
+    echo "  ✗ ${ctr} exists but NOT running"
+    FAIL=$((FAIL + 1))
+  else
+    echo "  - ${ctr} not found (may be expected in external-db mode)"
+  fi
+done
+
+echo ""
+
 # --- Kafka / Debezium ---
 echo "[Kafka & Debezium]"
 check "Kafka broker container running" docker inspect -f '{{.State.Running}}' edp-kafka
