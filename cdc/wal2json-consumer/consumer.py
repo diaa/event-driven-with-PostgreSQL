@@ -114,35 +114,42 @@ def run_stream() -> None:
     ensure_slot(repl_cur)
 
     buffer: list[dict] = []
+    last_flush = time.monotonic()
+    flush_interval = 0.5  # flush at least every 500ms
     print("Starting wal2json stream...")
 
-    def on_message(msg):
-        nonlocal buffer
-        payload_obj = json.loads(msg.payload)
-        rows = extract_event_rows(payload_obj)
-        buffer.extend(rows)
-
-        if len(buffer) >= BATCH_SIZE:
-            write_benchmark_rows(metrics_conn, buffer)
-            print(f"Flushed {len(buffer)} wal2json rows")
-            buffer = []
-
-        msg.cursor.send_feedback(flush_lsn=msg.data_start)
+    repl_cur.start_replication(
+        slot_name=SLOT_NAME,
+        options={
+            "pretty-print": 0,
+            "add-tables": "public.orders",
+            "include-lsn": 1,
+            "include-timestamp": 1,
+        },
+    )
 
     try:
-        repl_cur.start_replication(
-            slot_name=SLOT_NAME,
-            options={
-                "pretty-print": 0,
-                "add-tables": "public.orders",
-                "include-lsn": 1,
-                "include-timestamp": 1,
-            },
-        )
-        repl_cur.consume_stream(on_message)
+        while True:
+            msg = repl_cur.read_message()
+            if msg:
+                payload_obj = json.loads(msg.payload)
+                rows = extract_event_rows(payload_obj)
+                buffer.extend(rows)
+                repl_cur.send_feedback(flush_lsn=msg.data_start)
+
+            now = time.monotonic()
+            if buffer and (len(buffer) >= BATCH_SIZE or now - last_flush >= flush_interval):
+                write_benchmark_rows(metrics_conn, buffer)
+                print(f"Flushed {len(buffer)} wal2json rows")
+                buffer = []
+                last_flush = now
+
+            if not msg:
+                time.sleep(0.01)
     finally:
         if buffer:
             write_benchmark_rows(metrics_conn, buffer)
+            print(f"Final flush: {len(buffer)} wal2json rows")
         time.sleep(0.2)
         for c in (repl_cur, repl_conn, metrics_conn):
             try:

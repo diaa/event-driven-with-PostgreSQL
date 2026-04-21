@@ -229,30 +229,41 @@ def run_stream() -> None:
     ensure_slot(repl_cur)
 
     buffer: list[tuple] = []
+    last_flush = time.monotonic()
+    flush_interval = 0.5  # flush at least every 500ms
     print("Starting Drasi pgoutput stream...")
 
-    def on_message(msg):
-        nonlocal buffer
-        rows = parse_pgoutput_message(msg.payload if isinstance(msg.payload, bytes) else msg.payload.encode("latin-1"))
-        buffer.extend(rows)
-
-        if len(buffer) >= BATCH_SIZE:
-            write_rows(metrics_conn, buffer)
-            print(f"Flushed {len(buffer)} Drasi rows")
-            buffer = []
-
-        msg.cursor.send_feedback(flush_lsn=msg.data_start)
+    repl_cur.start_replication(
+        slot_name=SLOT_NAME,
+        decode=False,
+        options={"proto_version": "1", "publication_names": PUBLICATION},
+    )
 
     try:
-        repl_cur.start_replication(
-            slot_name=SLOT_NAME,
-            decode=False,
-            options={"proto_version": "1", "publication_names": PUBLICATION},
-        )
-        repl_cur.consume_stream(on_message)
+        while True:
+            msg = repl_cur.read_message()
+            if msg:
+                rows = parse_pgoutput_message(
+                    msg.payload if isinstance(msg.payload, bytes)
+                    else msg.payload.encode("latin-1")
+                )
+                buffer.extend(rows)
+                repl_cur.send_feedback(flush_lsn=msg.data_start)
+
+            now = time.monotonic()
+            if buffer and (len(buffer) >= BATCH_SIZE or now - last_flush >= flush_interval):
+                write_rows(metrics_conn, buffer)
+                print(f"Flushed {len(buffer)} Drasi rows")
+                buffer = []
+                last_flush = now
+
+            if not msg:
+                # Brief pause when no data to avoid busy-loop
+                time.sleep(0.01)
     finally:
         if buffer:
             write_rows(metrics_conn, buffer)
+            print(f"Final flush: {len(buffer)} Drasi rows")
         time.sleep(0.2)
         for c in (repl_cur, repl_conn, metrics_conn):
             try:
