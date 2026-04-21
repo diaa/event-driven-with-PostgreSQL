@@ -194,6 +194,7 @@ var pgConfigs = {
   max_replication_slots: '10'
   max_wal_senders: '10'
   shared_preload_libraries: 'wal2json'
+  'azure.extensions': 'pgcrypto'
 }
 
 @batchSize(1)

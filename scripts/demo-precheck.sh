@@ -37,6 +37,7 @@ check "PostgreSQL reachable" psql "${DB_URL}" -c "SELECT 1"
 check "wal_level=logical" psql "${DB_URL}" -tAc "SELECT 1 FROM pg_settings WHERE name='wal_level' AND setting='logical'"
 check "Publication app_cdc_pub exists" psql "${DB_URL}" -tAc "SELECT 1 FROM pg_publication WHERE pubname='app_cdc_pub'"
 check "benchmark_events table exists" psql "${DB_URL}" -tAc "SELECT 1 FROM information_schema.tables WHERE table_name='benchmark_events'"
+check "pgcrypto extension installed" psql "${DB_URL}" -tAc "SELECT 1 FROM pg_extension WHERE extname='pgcrypto'"
 
 echo ""
 

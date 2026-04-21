@@ -30,6 +30,20 @@ until psql "${DATABASE_URL}" -c "SELECT 1" &>/dev/null; do
   sleep "${RETRY_INTERVAL}"
 done
 
+# On Azure Flexible Server, allowlist pgcrypto if not already done
+if psql "${DATABASE_URL}" -tAc "SELECT 1 FROM pg_settings WHERE name='azure.extensions'" 2>/dev/null | grep -q 1; then
+  echo "Azure Flexible Server detected — checking pgcrypto allowlist ..."
+  CURRENT_EXT=$(psql "${DATABASE_URL}" -tAc "SHOW azure.extensions" 2>/dev/null || echo "")
+  if [[ "${CURRENT_EXT}" != *"pgcrypto"* ]]; then
+    echo "WARNING: pgcrypto is not in azure.extensions allowlist."
+    echo "Run from your local machine:"
+    echo "  az postgres flexible-server parameter set \\"
+    echo "    --resource-group edp-cdc-rg --server-name <server> \\"
+    echo "    --name azure.extensions --value pgcrypto"
+    echo ""
+  fi
+fi
+
 echo "Applying schema and replication SQL ..."
 psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/db/init/01-schema.sql"
 psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/db/init/02-replication.sql"
