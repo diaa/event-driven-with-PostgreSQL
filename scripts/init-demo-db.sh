@@ -50,4 +50,12 @@ psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/db/init/02-replication
 psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/db/init/03-views.sql"
 psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${ROOT_DIR}/db/init/04-seed.sql"
 
+# On Azure Flexible Server, grant REPLICATION to the admin role (needed for wal2json)
+if psql "${DATABASE_URL}" -tAc "SELECT 1 FROM pg_settings WHERE name='azure.extensions'" 2>/dev/null | grep -q 1; then
+  PG_ADMIN=$(psql "${DATABASE_URL}" -tAc "SELECT current_user")
+  echo "Granting REPLICATION to Azure admin role '${PG_ADMIN}' ..."
+  psql "${DATABASE_URL}" -c "ALTER ROLE ${PG_ADMIN} REPLICATION;" 2>/dev/null || \
+    echo "WARNING: Could not grant REPLICATION. You may need to run: ALTER ROLE ${PG_ADMIN} REPLICATION;"
+fi
+
 echo "Database initialization complete."
