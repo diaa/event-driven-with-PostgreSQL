@@ -8,7 +8,12 @@ set -euo pipefail
 # Do NOT run this concurrently with the Drasi Server profile.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
+# Auto-detect external database mode
+COMPOSE_FILES="-f ${ROOT_DIR}/docker-compose.yml"
+if [[ -f "${ROOT_DIR}/docker-compose.external-db.yml" ]] && [[ -n "${PG_HOST:-}" ]]; then
+  COMPOSE_FILES="${COMPOSE_FILES} -f ${ROOT_DIR}/docker-compose.external-db.yml"
+fi
+DC="docker compose ${COMPOSE_FILES}"
 APPROACH="drasi"
 RUN_LABEL="${RUN_LABEL:-$(date +%H%M%S)-drasi}"
 LOCUST_USERS="${LOCUST_USERS:-50}"
@@ -36,7 +41,7 @@ SLOTS_TO_DROP="drasi_slot" bash "${ROOT_DIR}/scripts/reset-demo.sh"
 # --- Start consumer ---
 echo ""
 echo "[2/4] Starting Drasi consumer ..."
-docker compose --project-directory "${ROOT_DIR}" --profile consumers up -d --build drasi-consumer
+${DC} --profile consumers up -d --build drasi-consumer
 sleep 3
 
 echo "Consumer logs (last 5 lines):"
@@ -46,7 +51,7 @@ docker logs --tail 5 edp-drasi-consumer 2>&1 || true
 echo ""
 echo "[3/4] Starting Locust load (${LOCUST_USERS} users, ${LOCUST_RUN_TIME}) ..."
 LOCUST_USERS="${LOCUST_USERS}" LOCUST_SPAWN_RATE="${LOCUST_SPAWN_RATE}" LOCUST_RUN_TIME="${LOCUST_RUN_TIME}" \
-  docker compose --project-directory "${ROOT_DIR}" --profile load up -d --build locust
+  ${DC} --profile load up -d --build locust
 
 echo ""
 echo "Load running. Monitor progress:"
@@ -84,8 +89,8 @@ SQL
 # --- Stop consumer ---
 echo ""
 echo "Stopping Drasi consumer ..."
-docker compose --project-directory "${ROOT_DIR}" --profile consumers stop drasi-consumer
-docker compose --project-directory "${ROOT_DIR}" --profile load stop locust
+${DC} --profile consumers stop drasi-consumer
+${DC} --profile load stop locust
 
 echo ""
 echo "Scenario '${APPROACH}' complete."

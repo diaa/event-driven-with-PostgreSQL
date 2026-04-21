@@ -5,7 +5,12 @@ set -euo pipefail
 # Run this script manually. It starts the consumer + load, waits, then prints results.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
+# Auto-detect external database mode
+COMPOSE_FILES="-f ${ROOT_DIR}/docker-compose.yml"
+if [[ -f "${ROOT_DIR}/docker-compose.external-db.yml" ]] && [[ -n "${PG_HOST:-}" ]]; then
+  COMPOSE_FILES="${COMPOSE_FILES} -f ${ROOT_DIR}/docker-compose.external-db.yml"
+fi
+DC="docker compose ${COMPOSE_FILES}"
 APPROACH="wal2json"
 RUN_LABEL="${RUN_LABEL:-$(date +%H%M%S)-wal2json}"
 LOCUST_USERS="${LOCUST_USERS:-50}"
@@ -26,7 +31,7 @@ SLOTS_TO_DROP="wal2json_slot" bash "${ROOT_DIR}/scripts/reset-demo.sh"
 # --- Start consumer ---
 echo ""
 echo "[2/4] Starting wal2json consumer ..."
-docker compose --project-directory "${ROOT_DIR}" --profile consumers up -d --build wal2json-consumer
+${DC} --profile consumers up -d --build wal2json-consumer
 sleep 3
 
 echo "Consumer logs (last 5 lines):"
@@ -36,7 +41,7 @@ docker logs --tail 5 edp-wal2json-consumer 2>&1 || true
 echo ""
 echo "[3/4] Starting Locust load (${LOCUST_USERS} users, ${LOCUST_RUN_TIME}) ..."
 LOCUST_USERS="${LOCUST_USERS}" LOCUST_SPAWN_RATE="${LOCUST_SPAWN_RATE}" LOCUST_RUN_TIME="${LOCUST_RUN_TIME}" \
-  docker compose --project-directory "${ROOT_DIR}" --profile load up -d --build locust
+  ${DC} --profile load up -d --build locust
 
 echo ""
 echo "Load running. Monitor progress:"
@@ -74,8 +79,8 @@ SQL
 # --- Stop consumer ---
 echo ""
 echo "Stopping wal2json consumer ..."
-docker compose --project-directory "${ROOT_DIR}" --profile consumers stop wal2json-consumer
-docker compose --project-directory "${ROOT_DIR}" --profile load stop locust
+${DC} --profile consumers stop wal2json-consumer
+${DC} --profile load stop locust
 
 echo ""
 echo "Scenario '${APPROACH}' complete. Run the next scenario when ready."

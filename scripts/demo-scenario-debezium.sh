@@ -5,7 +5,12 @@ set -euo pipefail
 # Run this script manually after completing the wal2json scenario.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-
+# Auto-detect external database mode
+COMPOSE_FILES="-f ${ROOT_DIR}/docker-compose.yml"
+if [[ -f "${ROOT_DIR}/docker-compose.external-db.yml" ]] && [[ -n "${PG_HOST:-}" ]]; then
+  COMPOSE_FILES="${COMPOSE_FILES} -f ${ROOT_DIR}/docker-compose.external-db.yml"
+fi
+DC="docker compose ${COMPOSE_FILES}"
 APPROACH="debezium"
 RUN_LABEL="${RUN_LABEL:-$(date +%H%M%S)-debezium}"
 LOCUST_USERS="${LOCUST_USERS:-50}"
@@ -31,7 +36,7 @@ bash "${ROOT_DIR}/scripts/setup-debezium.sh"
 # --- Start consumer ---
 echo ""
 echo "[3/5] Starting Debezium consumer ..."
-docker compose --project-directory "${ROOT_DIR}" --profile consumers up -d --build debezium-consumer
+${DC} --profile consumers up -d --build debezium-consumer
 sleep 3
 
 echo "Consumer logs (last 5 lines):"
@@ -41,7 +46,7 @@ docker logs --tail 5 edp-debezium-consumer 2>&1 || true
 echo ""
 echo "[4/5] Starting Locust load (${LOCUST_USERS} users, ${LOCUST_RUN_TIME}) ..."
 LOCUST_USERS="${LOCUST_USERS}" LOCUST_SPAWN_RATE="${LOCUST_SPAWN_RATE}" LOCUST_RUN_TIME="${LOCUST_RUN_TIME}" \
-  docker compose --project-directory "${ROOT_DIR}" --profile load up -d --build locust
+  ${DC} --profile load up -d --build locust
 
 echo ""
 echo "Load running. Monitor progress:"
@@ -80,8 +85,8 @@ SQL
 # --- Stop consumer ---
 echo ""
 echo "Stopping Debezium consumer ..."
-docker compose --project-directory "${ROOT_DIR}" --profile consumers stop debezium-consumer
-docker compose --project-directory "${ROOT_DIR}" --profile load stop locust
+${DC} --profile consumers stop debezium-consumer
+${DC} --profile load stop locust
 
 echo ""
 echo "Scenario '${APPROACH}' complete. Run the next scenario when ready."
