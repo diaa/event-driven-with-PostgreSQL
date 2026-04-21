@@ -4,6 +4,13 @@ set -euo pipefail
 # Pre-flight readiness check for the CDC demo.
 # Validates infrastructure health without starting any scenario.
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/..' && pwd)"
+
+# Load .env if present (provides PG_HOST etc. for external-db mode)
+if [[ -f "${ROOT_DIR}/.env" ]]; then
+  set -a; source "${ROOT_DIR}/.env"; set +a
+fi
+
 PASS=0
 FAIL=0
 

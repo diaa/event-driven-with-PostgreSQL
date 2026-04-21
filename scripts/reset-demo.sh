@@ -5,6 +5,13 @@ set -euo pipefail
 # Supports both embedded (docker exec) and external DB (DATABASE_URL or PG_* vars).
 # Use SLOTS_TO_DROP to target specific slots (default: all demo slots).
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Load .env if present (provides PG_HOST etc. for external-db mode)
+if [[ -f "${ROOT_DIR}/.env" ]]; then
+  set -a; source "${ROOT_DIR}/.env"; set +a
+fi
+
 SLOTS_TO_DROP="${SLOTS_TO_DROP:-wal2json_slot,debezium_slot,drasi_slot}"
 RESET_APPROACH="${RESET_APPROACH:-}"
 
