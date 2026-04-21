@@ -26,7 +26,7 @@ echo "════════════════════════�
 # --- Reset ---
 echo ""
 echo "[1/5] Resetting benchmark data ..."
-SLOTS_TO_DROP="debezium_slot" bash "${ROOT_DIR}/scripts/reset-demo.sh"
+SLOTS_TO_DROP="debezium_slot" RESET_APPROACH="debezium" bash "${ROOT_DIR}/scripts/reset-demo.sh"
 
 # --- Setup connector ---
 echo ""

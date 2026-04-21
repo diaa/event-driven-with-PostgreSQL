@@ -26,7 +26,7 @@ echo "════════════════════════�
 # --- Reset ---
 echo ""
 echo "[1/4] Resetting benchmark data ..."
-SLOTS_TO_DROP="wal2json_slot" bash "${ROOT_DIR}/scripts/reset-demo.sh"
+SLOTS_TO_DROP="wal2json_slot" RESET_APPROACH="wal2json" bash "${ROOT_DIR}/scripts/reset-demo.sh"
 
 # --- Start consumer ---
 echo ""

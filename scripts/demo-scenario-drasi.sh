@@ -36,7 +36,7 @@ fi
 # --- Reset ---
 echo ""
 echo "[1/4] Resetting benchmark data ..."
-SLOTS_TO_DROP="drasi_slot" bash "${ROOT_DIR}/scripts/reset-demo.sh"
+SLOTS_TO_DROP="drasi_slot" RESET_APPROACH="drasi" bash "${ROOT_DIR}/scripts/reset-demo.sh"
 
 # --- Start consumer ---
 echo ""
