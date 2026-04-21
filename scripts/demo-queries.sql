@@ -194,14 +194,17 @@ ORDER BY approach;
 
 SELECT
   approach,
-  count(*) AS total_events,
-  round(avg(latency_ms)::numeric, 2) AS avg_ms,
+  count(*) FILTER (WHERE notes NOT LIKE '%filtered%') AS raw_events,
+  count(*) FILTER (WHERE notes LIKE '%filtered%') AS filtered_events,
+  count(*) AS total_captured,
+  round(avg(latency_ms) FILTER (WHERE notes NOT LIKE '%filtered%')::numeric, 2) AS avg_ms,
   round(percentile_cont(0.50) WITHIN GROUP (ORDER BY latency_ms)::numeric, 2) AS p50_ms,
   round(percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms)::numeric, 2) AS p95_ms,
-  round(percentile_cont(0.99) WITHIN GROUP (ORDER BY latency_ms)::numeric, 2) AS p99_ms,
-  min(observed_at)::time AS first_event,
-  max(observed_at)::time AS last_event
+  round(percentile_cont(0.99) WITHIN GROUP (ORDER BY latency_ms)::numeric, 2) AS p99_ms
 FROM benchmark_events
-WHERE notes NOT LIKE '%filtered%'
 GROUP BY approach
 ORDER BY approach;
+
+\echo ''
+\echo '── Note: filtered_events are high-value orders (>=500, PAID/SHIPPED)'
+\echo '── Only Drasi captures these — wal2json & debezium show 0'
