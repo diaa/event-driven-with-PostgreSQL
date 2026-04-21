@@ -31,7 +31,7 @@ SLOTS_TO_DROP="wal2json_slot" RESET_APPROACH="wal2json" bash "${ROOT_DIR}/script
 # --- Start consumer ---
 echo ""
 echo "[2/4] Starting wal2json consumer ..."
-${DC} --profile consumers up -d --build wal2json-consumer
+${DC} --profile consumers up -d wal2json-consumer
 sleep 3
 
 echo "Consumer logs (last 5 lines):"
@@ -41,7 +41,7 @@ docker logs --tail 5 edp-wal2json-consumer 2>&1 || true
 echo ""
 echo "[3/4] Starting Locust load (${LOCUST_USERS} users, ${LOCUST_RUN_TIME}) ..."
 LOCUST_USERS="${LOCUST_USERS}" LOCUST_SPAWN_RATE="${LOCUST_SPAWN_RATE}" LOCUST_RUN_TIME="${LOCUST_RUN_TIME}" \
-  ${DC} --profile load up -d --build locust
+  ${DC} --profile load up -d locust
 
 echo ""
 echo "Load running. Monitor progress:"

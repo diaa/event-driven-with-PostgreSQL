@@ -36,7 +36,7 @@ bash "${ROOT_DIR}/scripts/setup-debezium.sh"
 # --- Start consumer ---
 echo ""
 echo "[3/5] Starting Debezium consumer ..."
-${DC} --profile consumers up -d --build debezium-consumer
+${DC} --profile consumers up -d debezium-consumer
 sleep 3
 
 echo "Consumer logs (last 5 lines):"
@@ -46,7 +46,7 @@ docker logs --tail 5 edp-debezium-consumer 2>&1 || true
 echo ""
 echo "[4/5] Starting Locust load (${LOCUST_USERS} users, ${LOCUST_RUN_TIME}) ..."
 LOCUST_USERS="${LOCUST_USERS}" LOCUST_SPAWN_RATE="${LOCUST_SPAWN_RATE}" LOCUST_RUN_TIME="${LOCUST_RUN_TIME}" \
-  ${DC} --profile load up -d --build locust
+  ${DC} --profile load up -d locust
 
 echo ""
 echo "Load running. Monitor progress:"
