@@ -11,8 +11,10 @@ Applies two query filters matching the Drasi config:
 import json
 import os
 import struct
+import threading
 import time
 from datetime import datetime, timezone
+from queue import SimpleQueue
 
 import psycopg2
 from psycopg2.extras import LogicalReplicationConnection, execute_values
@@ -219,14 +221,36 @@ def write_rows(conn, rows: list[tuple]) -> None:
     conn.commit()
 
 
+_SENTINEL = None  # signals writer thread to exit
+
+
+def _writer_thread(write_queue: SimpleQueue, dsn_str: str) -> None:
+    """Background thread that drains the queue and writes batches to the DB."""
+    conn = psycopg2.connect(dsn_str)
+    try:
+        while True:
+            batch = write_queue.get()
+            if batch is _SENTINEL:
+                break
+            write_rows(conn, batch)
+            print(f"Flushed {len(batch)} Drasi rows")
+    finally:
+        conn.close()
+
+
 def run_stream() -> None:
-    metrics_conn = psycopg2.connect(dsn(PG_DB))
     repl_conn = psycopg2.connect(
         dsn(PG_DB), connection_factory=LogicalReplicationConnection
     )
     repl_cur = repl_conn.cursor()
 
     ensure_slot(repl_cur)
+
+    write_queue: SimpleQueue = SimpleQueue()
+    writer = threading.Thread(
+        target=_writer_thread, args=(write_queue, dsn(PG_DB)), daemon=True
+    )
+    writer.start()
 
     buffer: list[tuple] = []
     last_flush = time.monotonic()
@@ -253,9 +277,8 @@ def run_stream() -> None:
 
             now = time.monotonic()
             if buffer and (len(buffer) >= BATCH_SIZE or now - last_flush >= flush_interval):
-                write_rows(metrics_conn, buffer)
+                write_queue.put(buffer)
                 repl_cur.send_feedback(flush_lsn=last_lsn)
-                print(f"Flushed {len(buffer)} Drasi rows")
                 buffer = []
                 last_flush = now
 
@@ -264,10 +287,11 @@ def run_stream() -> None:
                 time.sleep(0.01)
     finally:
         if buffer:
-            write_rows(metrics_conn, buffer)
-            print(f"Final flush: {len(buffer)} Drasi rows")
+            write_queue.put(buffer)
+        write_queue.put(_SENTINEL)
+        writer.join(timeout=10)
         time.sleep(0.2)
-        for c in (repl_cur, repl_conn, metrics_conn):
+        for c in (repl_cur, repl_conn):
             try:
                 c.close()
             except Exception:

@@ -1,7 +1,9 @@
 import json
 import os
+import threading
 import time
 from datetime import datetime, timezone
+from queue import SimpleQueue
 
 import psycopg2
 from dateutil import parser as dt_parser
@@ -103,15 +105,36 @@ def write_benchmark_rows(conn, rows: list[dict]) -> None:
 
 RETRY_DELAY = int(os.getenv("RETRY_DELAY", "3"))
 
+_SENTINEL = None  # signals writer thread to exit
+
+
+def _writer_thread(write_queue: SimpleQueue, dsn_str: str) -> None:
+    """Background thread that drains the queue and writes batches to the DB."""
+    conn = psycopg2.connect(dsn_str, cursor_factory=RealDictCursor)
+    try:
+        while True:
+            batch = write_queue.get()
+            if batch is _SENTINEL:
+                break
+            write_benchmark_rows(conn, batch)
+            print(f"Flushed {len(batch)} wal2json rows")
+    finally:
+        conn.close()
+
 
 def run_stream() -> None:
-    metrics_conn = psycopg2.connect(dsn(PG_DB), cursor_factory=RealDictCursor)
     repl_conn = psycopg2.connect(
         dsn(PG_DB), connection_factory=LogicalReplicationConnection
     )
     repl_cur = repl_conn.cursor()
 
     ensure_slot(repl_cur)
+
+    write_queue: SimpleQueue = SimpleQueue()
+    writer = threading.Thread(
+        target=_writer_thread, args=(write_queue, dsn(PG_DB)), daemon=True
+    )
+    writer.start()
 
     buffer: list[dict] = []
     last_flush = time.monotonic()
@@ -140,9 +163,8 @@ def run_stream() -> None:
 
             now = time.monotonic()
             if buffer and (len(buffer) >= BATCH_SIZE or now - last_flush >= flush_interval):
-                write_benchmark_rows(metrics_conn, buffer)
+                write_queue.put(buffer)
                 repl_cur.send_feedback(flush_lsn=last_lsn)
-                print(f"Flushed {len(buffer)} wal2json rows")
                 buffer = []
                 last_flush = now
 
@@ -150,10 +172,11 @@ def run_stream() -> None:
                 time.sleep(0.01)
     finally:
         if buffer:
-            write_benchmark_rows(metrics_conn, buffer)
-            print(f"Final flush: {len(buffer)} wal2json rows")
+            write_queue.put(buffer)
+        write_queue.put(_SENTINEL)
+        writer.join(timeout=10)
         time.sleep(0.2)
-        for c in (repl_cur, repl_conn, metrics_conn):
+        for c in (repl_cur, repl_conn):
             try:
                 c.close()
             except Exception:
