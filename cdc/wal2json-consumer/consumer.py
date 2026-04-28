@@ -115,6 +115,7 @@ def run_stream() -> None:
 
     buffer: list[dict] = []
     last_flush = time.monotonic()
+    last_lsn = 0
     flush_interval = 0.5  # flush at least every 500ms
     print("Starting wal2json stream...")
 
@@ -135,11 +136,12 @@ def run_stream() -> None:
                 payload_obj = json.loads(msg.payload)
                 rows = extract_event_rows(payload_obj)
                 buffer.extend(rows)
-                repl_cur.send_feedback(flush_lsn=msg.data_start)
+                last_lsn = msg.data_start
 
             now = time.monotonic()
             if buffer and (len(buffer) >= BATCH_SIZE or now - last_flush >= flush_interval):
                 write_benchmark_rows(metrics_conn, buffer)
+                repl_cur.send_feedback(flush_lsn=last_lsn)
                 print(f"Flushed {len(buffer)} wal2json rows")
                 buffer = []
                 last_flush = now

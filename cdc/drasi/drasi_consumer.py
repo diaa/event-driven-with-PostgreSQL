@@ -230,6 +230,7 @@ def run_stream() -> None:
 
     buffer: list[tuple] = []
     last_flush = time.monotonic()
+    last_lsn = 0
     flush_interval = 0.5  # flush at least every 500ms
     print("Starting Drasi pgoutput stream...")
 
@@ -248,11 +249,12 @@ def run_stream() -> None:
                     else msg.payload.encode("latin-1")
                 )
                 buffer.extend(rows)
-                repl_cur.send_feedback(flush_lsn=msg.data_start)
+                last_lsn = msg.data_start
 
             now = time.monotonic()
             if buffer and (len(buffer) >= BATCH_SIZE or now - last_flush >= flush_interval):
                 write_rows(metrics_conn, buffer)
+                repl_cur.send_feedback(flush_lsn=last_lsn)
                 print(f"Flushed {len(buffer)} Drasi rows")
                 buffer = []
                 last_flush = now
