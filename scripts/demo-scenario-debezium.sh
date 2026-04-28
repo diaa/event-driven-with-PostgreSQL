@@ -40,13 +40,9 @@ ${DC} --profile consumers up -d debezium-consumer
 sleep 3
 
 echo ""
-echo "Consumer started. Quick log check:"
+echo "Consumer started. Tail logs with:"
+echo "   docker logs -f edp-debezium-consumer"
 docker logs --tail 5 edp-debezium-consumer 2>&1 || true
-echo ""
-echo "── NEXT: Open Kafka UI (http://localhost:8081)"
-echo "   → Topic: dbserver1.public.orders → see messages flowing"
-echo ""
-read -rp "Press Enter once you've checked Kafka UI ..."
 
 # --- Start load ---
 echo ""
@@ -55,13 +51,9 @@ LOCUST_USERS="${LOCUST_USERS}" LOCUST_SPAWN_RATE="${LOCUST_SPAWN_RATE}" LOCUST_R
   ${DC} --profile load up -d locust
 
 echo ""
-echo "══════════════════════════════════════════════"
-echo "  Load is running for ${LOCUST_RUN_TIME}."
-echo "  → Switch to SLIDES: Debezium mechanism & tradeoffs"
-echo "  → Come back here when the 2 minutes are up."
-echo "══════════════════════════════════════════════"
-echo ""
-read -rp "Press Enter when load is complete to see results ..."
+echo "Waiting for Locust to finish (${LOCUST_RUN_TIME}) ..."
+while docker ps --format '{{.Names}}' 2>/dev/null | grep -q edp-locust; do sleep 5; done
+echo "Load complete."
 
 # --- Results ---
 echo ""

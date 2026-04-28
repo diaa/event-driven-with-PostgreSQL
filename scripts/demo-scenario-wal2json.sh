@@ -35,13 +35,9 @@ ${DC} --profile consumers up -d wal2json-consumer
 sleep 3
 
 echo ""
-echo "Consumer started. Quick log check:"
-docker logs --tail 5 edp-wal2json-consumer 2>&1 || true
-echo ""
-echo "── NEXT: Switch to LOGS terminal and run:"
+echo "Consumer started. Tail logs with:"
 echo "   docker logs -f edp-wal2json-consumer"
-echo ""
-read -rp "Press Enter once you've checked the logs ..."
+docker logs --tail 5 edp-wal2json-consumer 2>&1 || true
 
 # --- Start load ---
 echo ""
@@ -50,13 +46,9 @@ LOCUST_USERS="${LOCUST_USERS}" LOCUST_SPAWN_RATE="${LOCUST_SPAWN_RATE}" LOCUST_R
   ${DC} --profile load up -d locust
 
 echo ""
-echo "══════════════════════════════════════════════"
-echo "  Load is running for ${LOCUST_RUN_TIME}."
-echo "  → Switch to SLIDES: wal2json mechanism & tradeoffs"
-echo "  → Come back here when the 2 minutes are up."
-echo "══════════════════════════════════════════════"
-echo ""
-read -rp "Press Enter when load is complete to see results ..."
+echo "Waiting for Locust to finish (${LOCUST_RUN_TIME}) ..."
+while docker ps --format '{{.Names}}' 2>/dev/null | grep -q edp-locust; do sleep 5; done
+echo "Load complete."
 
 # --- Results ---
 echo ""
