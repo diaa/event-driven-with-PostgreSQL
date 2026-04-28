@@ -20,17 +20,17 @@ LOCUST_RUN_TIME="${LOCUST_RUN_TIME:-2m}"
 export RUN_LABEL
 
 echo "════════════════════════════════════════════"
-echo "  Scenario: Debezium+Kafka — label: ${RUN_LABEL}"
+echo "  Scenario 2: Debezium+Kafka — label: ${RUN_LABEL}"
 echo "════════════════════════════════════════════"
 
 # --- Reset ---
 echo ""
-echo "[1/5] Resetting benchmark data ..."
+echo "[1/5] Resetting debezium benchmark data ..."
 SLOTS_TO_DROP="debezium_slot" RESET_APPROACH="debezium" bash "${ROOT_DIR}/scripts/reset-demo.sh"
 
 # --- Setup connector ---
 echo ""
-echo "[2/5] Registering Debezium connector ..."
+echo "[2/5] Registering Debezium connector with Kafka Connect ..."
 bash "${ROOT_DIR}/scripts/setup-debezium.sh"
 
 # --- Start consumer ---
@@ -39,8 +39,14 @@ echo "[3/5] Starting Debezium consumer ..."
 ${DC} --profile consumers up -d debezium-consumer
 sleep 3
 
-echo "Consumer logs (last 5 lines):"
+echo ""
+echo "Consumer started. Quick log check:"
 docker logs --tail 5 edp-debezium-consumer 2>&1 || true
+echo ""
+echo "── NEXT: Open Kafka UI (http://localhost:8081)"
+echo "   → Topic: dbserver1.public.orders → see messages flowing"
+echo ""
+read -rp "Press Enter once you've checked Kafka UI ..."
 
 # --- Start load ---
 echo ""
@@ -49,14 +55,13 @@ LOCUST_USERS="${LOCUST_USERS}" LOCUST_SPAWN_RATE="${LOCUST_SPAWN_RATE}" LOCUST_R
   ${DC} --profile load up -d locust
 
 echo ""
-echo "Load running. Monitor progress:"
-echo "  • Locust UI:   http://localhost:8089"
-echo "  • Kafka UI:    http://localhost:8081"
-echo "  • Streamlit:   http://localhost:8501"
-echo "  • Consumer:    docker logs -f edp-debezium-consumer"
+echo "══════════════════════════════════════════════"
+echo "  Load is running for ${LOCUST_RUN_TIME}."
+echo "  → Switch to SLIDES: Debezium mechanism & tradeoffs"
+echo "  → Come back here when the 2 minutes are up."
+echo "══════════════════════════════════════════════"
 echo ""
-echo "Press Enter when load is complete to see results ..."
-read -r
+read -rp "Press Enter when load is complete to see results ..."
 
 # --- Results ---
 echo ""
@@ -84,9 +89,17 @@ SQL
 
 # --- Stop consumer ---
 echo ""
-echo "Stopping Debezium consumer ..."
+echo "Stopping Debezium consumer & load ..."
 ${DC} --profile consumers stop debezium-consumer
 ${DC} --profile load stop locust
 
 echo ""
-echo "Scenario '${APPROACH}' complete. Run the next scenario when ready."
+echo "══════════════════════════════════════════════"
+echo "  Debezium scenario complete."
+echo ""
+echo "  NEXT STEPS:"
+echo "  1. → Streamlit: refresh to see both approaches (2 bars)"
+echo "  2. → PSQL terminal: verify wal2json + debezium both in DB"
+echo "  3. → SLIDES: move to Drasi flow slide"
+echo "  4. → Run: bash scripts/demo-scenario-drasi.sh"
+echo "══════════════════════════════════════════════"

@@ -20,12 +20,12 @@ LOCUST_RUN_TIME="${LOCUST_RUN_TIME:-2m}"
 export RUN_LABEL
 
 echo "════════════════════════════════════════════"
-echo "  Scenario: wal2json — label: ${RUN_LABEL}"
+echo "  Scenario 1: wal2json — label: ${RUN_LABEL}"
 echo "════════════════════════════════════════════"
 
 # --- Reset ---
 echo ""
-echo "[1/4] Resetting benchmark data ..."
+echo "[1/4] Resetting wal2json benchmark data ..."
 SLOTS_TO_DROP="wal2json_slot" RESET_APPROACH="wal2json" bash "${ROOT_DIR}/scripts/reset-demo.sh"
 
 # --- Start consumer ---
@@ -34,8 +34,14 @@ echo "[2/4] Starting wal2json consumer ..."
 ${DC} --profile consumers up -d wal2json-consumer
 sleep 3
 
-echo "Consumer logs (last 5 lines):"
+echo ""
+echo "Consumer started. Quick log check:"
 docker logs --tail 5 edp-wal2json-consumer 2>&1 || true
+echo ""
+echo "── NEXT: Switch to LOGS terminal and run:"
+echo "   docker logs -f edp-wal2json-consumer"
+echo ""
+read -rp "Press Enter once you've checked the logs ..."
 
 # --- Start load ---
 echo ""
@@ -44,13 +50,13 @@ LOCUST_USERS="${LOCUST_USERS}" LOCUST_SPAWN_RATE="${LOCUST_SPAWN_RATE}" LOCUST_R
   ${DC} --profile load up -d locust
 
 echo ""
-echo "Load running. Monitor progress:"
-echo "  • Locust UI:   http://localhost:8089"
-echo "  • Streamlit:   http://localhost:8501"
-echo "  • Consumer:    docker logs -f edp-wal2json-consumer"
+echo "══════════════════════════════════════════════"
+echo "  Load is running for ${LOCUST_RUN_TIME}."
+echo "  → Switch to SLIDES: wal2json mechanism & tradeoffs"
+echo "  → Come back here when the 2 minutes are up."
+echo "══════════════════════════════════════════════"
 echo ""
-echo "Press Enter when load is complete to see results ..."
-read -r
+read -rp "Press Enter when load is complete to see results ..."
 
 # --- Results ---
 echo ""
@@ -78,9 +84,17 @@ SQL
 
 # --- Stop consumer ---
 echo ""
-echo "Stopping wal2json consumer ..."
+echo "Stopping wal2json consumer & load ..."
 ${DC} --profile consumers stop wal2json-consumer
 ${DC} --profile load stop locust
 
 echo ""
-echo "Scenario '${APPROACH}' complete. Run the next scenario when ready."
+echo "══════════════════════════════════════════════"
+echo "  wal2json scenario complete."
+echo ""
+echo "  NEXT STEPS:"
+echo "  1. → Streamlit: refresh to see wal2json results (1 approach)"
+echo "  2. → PSQL terminal: verify data in database"
+echo "  3. → SLIDES: move to Debezium flow slide"
+echo "  4. → Run: bash scripts/demo-scenario-debezium.sh"
+echo "══════════════════════════════════════════════"

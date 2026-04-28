@@ -23,7 +23,7 @@ LOCUST_RUN_TIME="${LOCUST_RUN_TIME:-2m}"
 export RUN_LABEL
 
 echo "════════════════════════════════════════════"
-echo "  Scenario: Drasi — label: ${RUN_LABEL}"
+echo "  Scenario 3: Drasi — label: ${RUN_LABEL}"
 echo "════════════════════════════════════════════"
 
 # --- Safety check: ensure drasi-server is not running ---
@@ -35,7 +35,7 @@ fi
 
 # --- Reset ---
 echo ""
-echo "[1/4] Resetting benchmark data ..."
+echo "[1/4] Resetting drasi benchmark data ..."
 SLOTS_TO_DROP="drasi_slot" RESET_APPROACH="drasi" bash "${ROOT_DIR}/scripts/reset-demo.sh"
 
 # --- Start consumer ---
@@ -44,8 +44,15 @@ echo "[2/4] Starting Drasi consumer ..."
 ${DC} --profile consumers up -d drasi-consumer
 sleep 3
 
-echo "Consumer logs (last 5 lines):"
+echo ""
+echo "Consumer started. Quick log check:"
 docker logs --tail 5 edp-drasi-consumer 2>&1 || true
+echo ""
+echo "── NEXT: Switch to LOGS terminal and run:"
+echo "   docker logs -f edp-drasi-consumer"
+echo "   Look for FILTER-DBG lines showing the Cypher filter in action."
+echo ""
+read -rp "Press Enter once you've checked the logs ..."
 
 # --- Start load ---
 echo ""
@@ -54,13 +61,13 @@ LOCUST_USERS="${LOCUST_USERS}" LOCUST_SPAWN_RATE="${LOCUST_SPAWN_RATE}" LOCUST_R
   ${DC} --profile load up -d locust
 
 echo ""
-echo "Load running. Monitor progress:"
-echo "  • Locust UI:   http://localhost:8089"
-echo "  • Streamlit:   http://localhost:8501"
-echo "  • Consumer:    docker logs -f edp-drasi-consumer"
+echo "══════════════════════════════════════════════"
+echo "  Load is running for ${LOCUST_RUN_TIME}."
+echo "  → Switch to SLIDES: Drasi mechanism & filtering"
+echo "  → Come back here when the 2 minutes are up."
+echo "══════════════════════════════════════════════"
 echo ""
-echo "Press Enter when load is complete to see results ..."
-read -r
+read -rp "Press Enter when load is complete to see results ..."
 
 # --- Results ---
 echo ""
@@ -109,9 +116,17 @@ echo "application code or a stream processor to achieve this."
 
 # --- Stop consumer ---
 echo ""
-echo "Stopping Drasi consumer ..."
+echo "Stopping Drasi consumer & load ..."
 ${DC} --profile consumers stop drasi-consumer
 ${DC} --profile load stop locust
 
 echo ""
-echo "Scenario '${APPROACH}' complete."
+echo "══════════════════════════════════════════════"
+echo "  Drasi scenario complete. All 3 approaches done!"
+echo ""
+echo "  FINAL STEPS:"
+echo "  1. → Streamlit: refresh to see all 4 series (wal2json, debezium, drasi, drasi-filtered)"
+echo "  2. → PSQL terminal: run Section 6 (side-by-side comparison)"
+echo "  3. → Run: bash scripts/demo-results.sh"
+echo "  4. → SLIDES: move to benchmark results & conclusion"
+echo "══════════════════════════════════════════════"
