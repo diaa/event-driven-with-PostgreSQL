@@ -28,7 +28,7 @@ PG_SSLMODE = os.getenv("PG_SSLMODE", "disable")
 
 SLOT_NAME = os.getenv("SLOT_NAME", "drasi_slot")
 PUBLICATION = os.getenv("PUBLICATION", "app_cdc_pub")
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", "100"))
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "500"))
 RETRY_DELAY = int(os.getenv("RETRY_DELAY", "3"))
 RUN_LABEL = os.getenv("RUN_LABEL", "")
 
@@ -253,9 +253,7 @@ def run_stream() -> None:
     writer.start()
 
     buffer: list[tuple] = []
-    last_flush = time.monotonic()
     last_lsn = 0
-    flush_interval = 0.5  # flush at least every 500ms
     print("Starting Drasi pgoutput stream...")
 
     repl_cur.start_replication(
@@ -275,22 +273,23 @@ def run_stream() -> None:
                 buffer.extend(rows)
                 last_lsn = msg.data_start
 
-            now = time.monotonic()
-            if buffer and (len(buffer) >= BATCH_SIZE or now - last_flush >= flush_interval):
+                if len(buffer) >= BATCH_SIZE:
+                    write_queue.put(buffer)
+                    repl_cur.send_feedback(flush_lsn=last_lsn)
+                    buffer = []
+                continue  # drain all available messages first
+
+            # No message available — flush remaining buffer and brief pause
+            if buffer:
                 write_queue.put(buffer)
                 repl_cur.send_feedback(flush_lsn=last_lsn)
                 buffer = []
-                last_flush = now
-
-            if not msg:
-                # Brief pause when no data to avoid busy-loop
-                time.sleep(0.01)
+            time.sleep(0.001)
     finally:
         if buffer:
             write_queue.put(buffer)
         write_queue.put(_SENTINEL)
         writer.join(timeout=10)
-        time.sleep(0.2)
         for c in (repl_cur, repl_conn):
             try:
                 c.close()
