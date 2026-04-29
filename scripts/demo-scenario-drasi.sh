@@ -112,12 +112,4 @@ ${DC} --profile consumers stop drasi-consumer
 ${DC} --profile load stop locust
 
 echo ""
-echo "══════════════════════════════════════════════"
-echo "  Drasi scenario complete. All 3 approaches done!"
-echo ""
-echo "  FINAL STEPS:"
-echo "  1. → Streamlit: refresh to see all 4 series (wal2json, debezium, drasi, drasi-filtered)"
-echo "  2. → PSQL terminal: run Section 6 (side-by-side comparison)"
-echo "  3. → Run: bash scripts/demo-results.sh"
-echo "  4. → SLIDES: move to benchmark results & conclusion"
-echo "══════════════════════════════════════════════"
+echo "Drasi scenario complete. All 3 approaches done!"

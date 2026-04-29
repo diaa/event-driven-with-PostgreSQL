@@ -81,12 +81,4 @@ ${DC} --profile consumers stop wal2json-consumer
 ${DC} --profile load stop locust
 
 echo ""
-echo "══════════════════════════════════════════════"
-echo "  wal2json scenario complete."
-echo ""
-echo "  NEXT STEPS:"
-echo "  1. → Streamlit: refresh to see wal2json results (1 approach)"
-echo "  2. → PSQL terminal: verify data in database"
-echo "  3. → SLIDES: move to Debezium flow slide"
-echo "  4. → Run: bash scripts/demo-scenario-debezium.sh"
-echo "══════════════════════════════════════════════"
+echo "wal2json scenario complete."

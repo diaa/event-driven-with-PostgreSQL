@@ -92,12 +92,4 @@ ${DC} --profile consumers stop debezium-consumer
 ${DC} --profile load stop locust
 
 echo ""
-echo "══════════════════════════════════════════════"
-echo "  Debezium scenario complete."
-echo ""
-echo "  NEXT STEPS:"
-echo "  1. → Streamlit: refresh to see both approaches (2 bars)"
-echo "  2. → PSQL terminal: verify wal2json + debezium both in DB"
-echo "  3. → SLIDES: move to Drasi flow slide"
-echo "  4. → Run: bash scripts/demo-scenario-drasi.sh"
-echo "══════════════════════════════════════════════"
+echo "Debezium scenario complete."
