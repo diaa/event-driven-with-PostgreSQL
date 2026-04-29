@@ -1,5 +1,6 @@
 import json
 import os
+import select
 import threading
 import time
 from datetime import datetime, timezone
@@ -48,13 +49,12 @@ def _fast_parse_ts(ts_str: str) -> datetime:
     return datetime.fromisoformat(ts_str)
 
 
-def extract_event_rows(payload_obj: dict, payload_len: int) -> list[tuple]:
+def extract_event_rows(payload_obj: dict, payload_len: int, observed: datetime) -> list[tuple]:
     rows = []
     ts = payload_obj.get("timestamp")
     if not ts:
         return rows
     commit_ts = _fast_parse_ts(ts)
-    observed = datetime.now(timezone.utc)
     latency_ms = (observed - commit_ts).total_seconds() * 1000.0
 
     for item in payload_obj.get("change", []):
@@ -138,8 +138,9 @@ def run_stream() -> None:
         while True:
             msg = repl_cur.read_message()
             if msg:
+                observed = datetime.now(timezone.utc)
                 payload = msg.payload
-                rows = extract_event_rows(json.loads(payload), len(payload))
+                rows = extract_event_rows(json.loads(payload), len(payload), observed)
                 buffer.extend(rows)
                 last_lsn = msg.data_start
 
@@ -149,12 +150,13 @@ def run_stream() -> None:
                     buffer = []
                 continue  # drain all available messages first
 
-            # No message available — flush remaining buffer and brief pause
+            # No message available — flush remaining buffer
             if buffer:
                 write_queue.put(buffer)
                 repl_cur.send_feedback(flush_lsn=last_lsn)
                 buffer = []
-            time.sleep(0.001)
+            # Efficient wait for data on the replication socket
+            select.select([repl_conn], [], [], 0.1)
     finally:
         if buffer:
             write_queue.put(buffer)

@@ -10,6 +10,7 @@ Applies two query filters matching the Drasi config:
 
 import json
 import os
+import select
 import struct
 import threading
 import time
@@ -96,7 +97,7 @@ def _read_tuple_data(data: bytes, offset: int, num_cols: int) -> tuple[dict, int
     return values, offset
 
 
-def parse_pgoutput_message(data: bytes) -> list[dict]:
+def parse_pgoutput_message(data: bytes, observed: datetime | None = None) -> list[dict]:
     """Parse a single pgoutput message and return benchmark rows."""
     global _current_commit_ts
     rows = []
@@ -161,11 +162,11 @@ def parse_pgoutput_message(data: bytes) -> list[dict]:
             rel["columns"][i]: values_raw.get(i) for i in range(len(rel["columns"]))
         }
 
-        observed = datetime.now(timezone.utc)
+        observed_ts = observed or datetime.now(timezone.utc)
         commit_ts = _current_commit_ts
         latency_ms = None
         if commit_ts:
-            latency_ms = (observed - commit_ts).total_seconds() * 1000.0
+            latency_ms = (observed_ts - commit_ts).total_seconds() * 1000.0
 
         event_id = col_map.get("id", "unknown")
         op = "INSERT" if msg_type == PG_MSG_INSERT else "UPDATE"
@@ -266,9 +267,11 @@ def run_stream() -> None:
         while True:
             msg = repl_cur.read_message()
             if msg:
+                observed = datetime.now(timezone.utc)
                 rows = parse_pgoutput_message(
                     msg.payload if isinstance(msg.payload, bytes)
-                    else msg.payload.encode("latin-1")
+                    else msg.payload.encode("latin-1"),
+                    observed,
                 )
                 buffer.extend(rows)
                 last_lsn = msg.data_start
@@ -279,12 +282,13 @@ def run_stream() -> None:
                     buffer = []
                 continue  # drain all available messages first
 
-            # No message available — flush remaining buffer and brief pause
+            # No message available — flush remaining buffer
             if buffer:
                 write_queue.put(buffer)
                 repl_cur.send_feedback(flush_lsn=last_lsn)
                 buffer = []
-            time.sleep(0.001)
+            # Efficient wait for data on the replication socket
+            select.select([repl_conn], [], [], 0.1)
     finally:
         if buffer:
             write_queue.put(buffer)
