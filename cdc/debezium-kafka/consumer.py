@@ -1,11 +1,12 @@
 import json
 import os
+import threading
 import time
 from datetime import datetime, timezone
+from queue import SimpleQueue
 
 import psycopg2
 from confluent_kafka import Consumer
-from dateutil import parser as dt_parser
 from psycopg2.extras import execute_values
 
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
@@ -20,7 +21,7 @@ PG_DB = os.getenv("PG_DB", "appdb")
 PG_SSLMODE = os.getenv("PG_SSLMODE", "disable")
 
 RUN_LABEL = os.getenv("RUN_LABEL", "")
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", "100"))
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "500"))
 
 
 def pg_dsn() -> str:
@@ -76,6 +77,21 @@ def flush_rows(conn, rows: list[tuple]) -> None:
 
 RETRY_DELAY = int(os.getenv("RETRY_DELAY", "3"))
 
+_SENTINEL = None
+
+
+def _writer_thread(write_queue: SimpleQueue, dsn_str: str) -> None:
+    conn = psycopg2.connect(dsn_str)
+    try:
+        while True:
+            batch = write_queue.get()
+            if batch is _SENTINEL:
+                break
+            flush_rows(conn, batch)
+            print(f"Flushed {len(batch)} Debezium rows")
+    finally:
+        conn.close()
+
 
 def run_consumer() -> None:
     consumer = Consumer(
@@ -87,14 +103,22 @@ def run_consumer() -> None:
     )
     consumer.subscribe([KAFKA_TOPIC])
 
-    pg_conn = psycopg2.connect(pg_dsn())
+    write_queue: SimpleQueue = SimpleQueue()
+    writer = threading.Thread(
+        target=_writer_thread, args=(write_queue, pg_dsn()), daemon=True
+    )
+    writer.start()
+
     rows: list[tuple] = []
 
     print(f"Consuming Debezium topic: {KAFKA_TOPIC}")
     try:
         while True:
-            msg = consumer.poll(1.0)
+            msg = consumer.poll(0.1)
             if msg is None:
+                if rows:
+                    write_queue.put(rows)
+                    rows = []
                 continue
             if msg.error():
                 print(f"Kafka error: {msg.error()}")
@@ -107,17 +131,15 @@ def run_consumer() -> None:
 
             rows.append(benchmark_row(payload, raw))
             if len(rows) >= BATCH_SIZE:
-                flush_rows(pg_conn, rows)
-                print(f"Flushed {len(rows)} Debezium rows")
-                rows.clear()
+                write_queue.put(rows)
+                rows = []
     finally:
-        flush_rows(pg_conn, rows)
+        if rows:
+            write_queue.put(rows)
+        write_queue.put(_SENTINEL)
+        writer.join(timeout=10)
         try:
             consumer.close()
-        except Exception:
-            pass
-        try:
-            pg_conn.close()
         except Exception:
             pass
 
