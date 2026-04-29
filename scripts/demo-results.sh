@@ -41,17 +41,16 @@ ORDER BY approach;
 SQL
 
 echo ""
-echo "--- Throughput (events per 5s, last 60s) ---"
+echo "--- Throughput (events per 30s) ---"
 psql "${DB_URL}" <<'SQL'
 SELECT
   approach,
-  date_bin('5 seconds', observed_at, timestamptz '2000-01-01') AS bucket,
+  date_bin('30 seconds', observed_at, timestamptz '2000-01-01') AS bucket,
   count(*) AS events
 FROM benchmark_events
-WHERE observed_at > now() - interval '60 seconds'
 GROUP BY approach, bucket
 ORDER BY bucket DESC, approach
-LIMIT 36;
+LIMIT 30;
 SQL
 
 echo ""
