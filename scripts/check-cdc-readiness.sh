@@ -2,6 +2,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Load environment (.env for Docker Compose, ~/.pg_azure for credentials)
+if [[ -f "${ROOT_DIR}/.env" ]]; then
+  set -a; source "${ROOT_DIR}/.env"; set +a
+fi
+if [[ -f "$HOME/.pg_azure" ]]; then
+  set -a; source "$HOME/.pg_azure"; set +a
+fi
 MAX_RETRIES="${MAX_RETRIES:-5}"
 RETRY_INTERVAL="${RETRY_INTERVAL:-2}"
 

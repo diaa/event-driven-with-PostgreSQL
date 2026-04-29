@@ -5,6 +5,13 @@ set -euo pipefail
 # Run this script manually after completing the wal2json scenario.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Load environment (.env for Docker Compose, ~/.pg_azure for credentials)
+if [[ -f "${ROOT_DIR}/.env" ]]; then
+  set -a; source "${ROOT_DIR}/.env"; set +a
+fi
+if [[ -f "$HOME/.pg_azure" ]]; then
+  set -a; source "$HOME/.pg_azure"; set +a
+fi
 # Auto-detect external database mode
 COMPOSE_FILES="-f ${ROOT_DIR}/docker-compose.yml"
 if [[ -f "${ROOT_DIR}/docker-compose.external-db.yml" ]] && [[ -n "${PG_HOST:-}" ]]; then

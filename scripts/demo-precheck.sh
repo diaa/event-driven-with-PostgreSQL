@@ -6,9 +6,12 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Load .env if present (provides PG_HOST etc. for external-db mode)
+# Load environment (.env for Docker Compose, ~/.pg_azure for credentials)
 if [[ -f "${ROOT_DIR}/.env" ]]; then
   set -a; source "${ROOT_DIR}/.env"; set +a
+fi
+if [[ -f "$HOME/.pg_azure" ]]; then
+  set -a; source "$HOME/.pg_azure"; set +a
 fi
 
 PASS=0
