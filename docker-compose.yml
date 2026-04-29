@@ -274,6 +274,7 @@ services:
       -f /mnt/locust/locustfile.py
       --host http://localhost
       --autostart
+      --autoquit 5
       --users ${LOCUST_USERS:-50}
       --spawn-rate ${LOCUST_SPAWN_RATE:-10}
       --run-time ${LOCUST_RUN_TIME:-5m}
