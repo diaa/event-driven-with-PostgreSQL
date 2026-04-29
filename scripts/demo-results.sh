@@ -45,12 +45,12 @@ echo "--- Throughput (events per 5s, last 60s) ---"
 psql "${DB_URL}" <<'SQL'
 SELECT
   approach,
-  date_bin('5 seconds', observed_at, timestamptz '2000-01-01') AS window,
+  date_bin('5 seconds', observed_at, timestamptz '2000-01-01') AS bucket,
   count(*) AS events
 FROM benchmark_events
 WHERE observed_at > now() - interval '60 seconds'
-GROUP BY approach, window
-ORDER BY window DESC, approach
+GROUP BY approach, bucket
+ORDER BY bucket DESC, approach
 LIMIT 36;
 SQL
 
