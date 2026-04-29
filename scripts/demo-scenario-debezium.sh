@@ -28,14 +28,20 @@ echo ""
 echo "[1/5] Resetting debezium benchmark data ..."
 SLOTS_TO_DROP="debezium_slot" RESET_APPROACH="debezium" bash "${ROOT_DIR}/scripts/reset-demo.sh"
 
+# --- Ensure Kafka infrastructure is running ---
+echo ""
+echo "[2/5] Ensuring Kafka infrastructure is running ..."
+${DC} up -d zookeeper kafka connect
+echo "Waiting for Kafka Connect to be ready ..."
+
 # --- Setup connector ---
 echo ""
-echo "[2/5] Registering Debezium connector with Kafka Connect ..."
+echo "[3/5] Registering Debezium connector with Kafka Connect ..."
 bash "${ROOT_DIR}/scripts/setup-debezium.sh"
 
 # --- Start consumer ---
 echo ""
-echo "[3/5] Starting Debezium consumer ..."
+echo "[4/5] Starting Debezium consumer ..."
 ${DC} --profile consumers up -d debezium-consumer
 sleep 3
 
@@ -46,7 +52,7 @@ docker logs --tail 5 edp-debezium-consumer 2>&1 || true
 
 # --- Start load ---
 echo ""
-echo "[4/5] Starting Locust load (${LOCUST_USERS} users, ${LOCUST_RUN_TIME}) ..."
+echo "[5/6] Starting Locust load (${LOCUST_USERS} users, ${LOCUST_RUN_TIME}) ..."
 LOCUST_USERS="${LOCUST_USERS}" LOCUST_SPAWN_RATE="${LOCUST_SPAWN_RATE}" LOCUST_RUN_TIME="${LOCUST_RUN_TIME}" \
   ${DC} --profile load up -d locust
 
@@ -57,7 +63,7 @@ echo "Load complete."
 
 # --- Results ---
 echo ""
-echo "[5/5] Scenario results for ${RUN_LABEL}:"
+echo "[6/6] Scenario results for ${RUN_LABEL}:"
 
 if [[ -n "${DATABASE_URL:-}" ]]; then
   DB_URL="${DATABASE_URL}"
