@@ -13,35 +13,9 @@ The repo includes:
 - Terraform templates to provision Azure cloud infrastructure
 - A Locust-based traffic generator for repeatable load testing
 
-## Diagrams
-
-- **System Architecture & Scenarios** — see `docs/architecture-and-scenarios.md`
-- **Demo Flow (slide-ready SVG)** — see [`docs/diagrams/demo-flow.svg`](docs/diagrams/demo-flow.svg)
-- **Deployment Procedure (slide-ready SVG)** — see [`docs/diagrams/deployment-procedure.svg`](docs/diagrams/deployment-procedure.svg)
-
 ## Benchmark Runbook
 
 - See `benchmarks/RUNBOOK.md` for the exact load matrix and step-by-step comparison flow.
-
-## 25-Minute Demo Plan
-
-- See `docs/DEMO-25MIN.md` for the minute-by-minute live demo script.
-- For shorter sessions, use the 10-minute sequential demo mode — see below.
-
-## 10-Minute Demo Plan (Recommended for Live)
-
-- See `docs/DEMO-10MIN.md` for the sequential operator runbook.
-- See `docs/PRESENTATION-10MIN.md` for the slide-by-slide speaker script.
-
-**Key principle:** Run one scenario at a time. Never launch all three CDC consumers simultaneously during a live demo.
-
-```bash
-./scripts/demo-precheck.sh          # verify infrastructure
-./scripts/demo-scenario-wal2json.sh  # scenario 1
-./scripts/demo-scenario-debezium.sh  # scenario 2
-./scripts/demo-scenario-drasi.sh     # scenario 3
-./scripts/demo-results.sh            # overall comparison
-```
 
 ## High-Level Structure
 
